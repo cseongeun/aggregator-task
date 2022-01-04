@@ -17,15 +17,15 @@ import {
 import { Token } from '@seongeun/aggregator-base/lib/entity';
 import { AavePolygonSchedulerService } from '@seongeun/aggregator-defi-protocol';
 import { TaskBase } from '../../task.base';
-import { TaskManagerService } from '../../task-app/manager/task-manager.service';
-import { TaskLoggerService } from '../../task-app/logger/task-logger.service';
+import { TaskManagerService } from '../../app/manager/task-manager.service';
+import { TaskLoggerService } from '../../app/logger/task-logger.service';
 
 @Injectable()
 export class AavePolygonLendingTask extends TaskBase {
   constructor(
     public readonly taskService: TaskService,
     public readonly taskMangerService: TaskManagerService,
-    public readonly taskLoggerService: TaskLoggerService,
+    // public readonly taskLoggerService: TaskLoggerService,
     public readonly tokenService: TokenService,
     public readonly lendingService: LendingService,
     public readonly context: AavePolygonSchedulerService,
@@ -34,7 +34,7 @@ export class AavePolygonLendingTask extends TaskBase {
       'AAVE-POLYGON-LENDING',
       taskService,
       taskMangerService,
-      taskLoggerService,
+      // taskLoggerService,
     );
   }
 
@@ -98,7 +98,7 @@ export class AavePolygonLendingTask extends TaskBase {
 
     const liquidityValue = mul(
       liquidityAmount,
-      marketInfo.supplyToken.tokenPrice.value,
+      marketInfo.supplyToken.priceUSD,
     );
 
     // borrow
@@ -112,18 +112,12 @@ export class AavePolygonLendingTask extends TaskBase {
       marketInfo.borrowToken.decimals,
     );
 
-    const borrowValue = mul(
-      borrowAmount,
-      marketInfo.borrowToken.tokenPrice.value,
-    );
+    const borrowValue = mul(borrowAmount, marketInfo.borrowToken.priceUSD);
 
     // supply
     const supplyAmount = add(liquidityAmount, borrowAmount);
 
-    const supplyValue = mul(
-      supplyAmount,
-      marketInfo.supplyToken.tokenPrice.value,
-    );
+    const supplyValue = mul(supplyAmount, marketInfo.supplyToken.priceUSD);
 
     // borrow supply apy
     const supplyApy = mul(

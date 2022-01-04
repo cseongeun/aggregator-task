@@ -2,10 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { Task } from '@seongeun/aggregator-base/lib/entity';
 import { TaskService } from '@seongeun/aggregator-base/lib/service';
 import { UpdateResult } from 'typeorm';
-import { TaskManagerService } from './task-app/manager/task-manager.service';
+import { TaskManagerService } from './app/manager/task-manager.service';
 
 @Injectable()
-export class TaskAppService {
+export class AppService {
   constructor(
     private readonly taskService: TaskService,
     private readonly taskManagerService: TaskManagerService,

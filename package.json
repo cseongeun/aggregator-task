@@ -26,7 +26,7 @@
     "@nestjs/platform-express": "^8.0.0",
     "@nestjs/schedule": "^1.0.2",
     "@nestjs/typeorm": "^8.0.2",
-    "@seongeun/aggregator-base": "0.0.23",
+    "@seongeun/aggregator-base": "0.0.26",
     "@seongeun/aggregator-defi-protocol": "0.0.3",
     "@seongeun/aggregator-logger": "0.0.2",
     "@seongeun/aggregator-util": "^1.0.12",

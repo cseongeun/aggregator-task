@@ -2,9 +2,9 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TaskModule } from '@seongeun/aggregator-base/lib/module';
 import { AaveTaskModule } from './aave/aave.task.module';
-import { TaskAppService } from './task-app.service';
-import { TaskManagerModule } from './task-app/manager/task-manager.module';
-import { MysqlConfigService } from './task-app/mysql/mysql-config.service';
+import { AppService } from './app.service';
+import { TaskManagerModule } from './app/manager/task-manager.module';
+import { MysqlConfigService } from './app/mysql/mysql-config.service';
 
 @Module({
   imports: [
@@ -13,7 +13,7 @@ import { MysqlConfigService } from './task-app/mysql/mysql-config.service';
     TaskManagerModule,
     AaveTaskModule,
   ],
-  providers: [TaskAppService],
-  exports: [TaskAppService],
+  providers: [AppService],
+  exports: [AppService],
 })
-export class TaskAppModule {}
+export class AppModule {}

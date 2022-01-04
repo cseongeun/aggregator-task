@@ -17,15 +17,15 @@ import {
 import { Token } from '@seongeun/aggregator-base/lib/entity';
 import { AaveAvalancheSchedulerService } from '@seongeun/aggregator-defi-protocol';
 import { TaskBase } from '../../task.base';
-import { TaskManagerService } from '../../task-app/manager/task-manager.service';
-import { TaskLoggerService } from '../../task-app/logger/task-logger.service';
+import { TaskManagerService } from '../../app/manager/task-manager.service';
+import { TaskLoggerService } from '../../app/logger/task-logger.service';
 
 @Injectable()
 export class AaveAvalancheLendingTask extends TaskBase {
   constructor(
     public readonly taskService: TaskService,
     public readonly taskManagerService: TaskManagerService,
-    public readonly taskLoggerService: TaskLoggerService,
+    // public readonly taskLoggerService: TaskLoggerService,
     public readonly lendingService: LendingService,
     public readonly tokenService: TokenService,
     public readonly context: AaveAvalancheSchedulerService,
@@ -34,7 +34,7 @@ export class AaveAvalancheLendingTask extends TaskBase {
       'AAVE-AVALANCHE-LENDING',
       taskService,
       taskManagerService,
-      taskLoggerService,
+      // taskLoggerService,
     );
   }
 
@@ -94,7 +94,7 @@ export class AaveAvalancheLendingTask extends TaskBase {
 
     const liquidityValue = mul(
       liquidityAmount,
-      marketInfo.supplyToken.tokenPrice.value,
+      marketInfo.supplyToken.priceUSD,
     );
 
     // borrow
@@ -108,18 +108,12 @@ export class AaveAvalancheLendingTask extends TaskBase {
       marketInfo.borrowToken.decimals,
     );
 
-    const borrowValue = mul(
-      borrowAmount,
-      marketInfo.borrowToken.tokenPrice.value,
-    );
+    const borrowValue = mul(borrowAmount, marketInfo.borrowToken.priceUSD);
 
     // supply
     const supplyAmount = add(liquidityAmount, borrowAmount);
 
-    const supplyValue = mul(
-      supplyAmount,
-      marketInfo.supplyToken.tokenPrice.value,
-    );
+    const supplyValue = mul(supplyAmount, marketInfo.supplyToken.priceUSD);
 
     // borrow supply apy
     const supplyApy = mul(
@@ -164,9 +158,9 @@ export class AaveAvalancheLendingTask extends TaskBase {
 
   async run(): Promise<Record<string, any> | null> {
     try {
+      console.log('wow');
       const reserves = await this.context.getLendingReserveList();
       const marketInfos = await this.context.getLendingMarketInfos(reserves);
-
       for await (const marketInfo of marketInfos) {
         let queryRunner: QueryRunner | null = null;
 
@@ -198,6 +192,7 @@ export class AaveAvalancheLendingTask extends TaskBase {
               address: reserve,
               status: true,
             });
+          console.log(lendingMarketToken);
 
           if (isUndefined(lendingMarketToken)) {
             continue;
@@ -284,6 +279,7 @@ export class AaveAvalancheLendingTask extends TaskBase {
 
           await queryRunner.commitTransaction();
         } catch (e) {
+          console.log(e);
           if (!isNull(queryRunner)) {
             await queryRunner.rollbackTransaction();
           }
@@ -295,6 +291,7 @@ export class AaveAvalancheLendingTask extends TaskBase {
       }
       return {};
     } catch (e) {
+      console.log(e);
     } finally {
     }
   }

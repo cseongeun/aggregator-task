@@ -4,16 +4,16 @@ import { TaskService } from '@seongeun/aggregator-base/lib/service';
 import { isCronString } from '@seongeun/aggregator-util/lib/type';
 import { WinstonLoggerService } from '@seongeun/aggregator-logger/lib/winston-logger/winston-logger.service';
 import { CronExpression } from '@nestjs/schedule';
-import { TaskManagerService } from './task-app/manager/task-manager.service';
+import { TaskManagerService } from './app/manager/task-manager.service';
 import { Injectable } from '@nestjs/common';
-import { TaskLoggerService } from './task-app/logger/task-logger.service';
+import { TaskLoggerService } from './app/logger/task-logger.service';
 import { getElapsedTime } from '@seongeun/aggregator-util/lib/time';
 import {
   EXCEPTION_CODE,
   EXCEPTION_LEVEL,
-} from './task-app/exception/exception.constant';
-import { Exception } from './task-app/exception/exception.dto';
-import { TASK_MESSAGE } from './task-app/message/message.constant';
+} from './app/exception/exception.constant';
+import { Exception } from './app/exception/exception.dto';
+import { TASK_MESSAGE } from './app/message/message.constant';
 
 @Injectable()
 export abstract class TaskBase {
@@ -39,20 +39,20 @@ export abstract class TaskBase {
   constructor(
     public readonly id: string,
     public readonly taskService: TaskService,
-    public readonly taskManagerService: TaskManagerService,
-    public readonly taskLoggerService: TaskLoggerService,
+    public readonly taskManagerService: TaskManagerService, // public readonly taskLoggerService: TaskLoggerService,
   ) {
     // 작업 및 작업 리스너 아이디 등록
     this.taskId = id;
 
     // 로깅 아이디 등록
-    this.taskLoggerService.injectId(this.taskId);
+    // this.taskLoggerService.injectId(this.taskId);
 
     // 작업 생성
-    this.taskJob = new CronJob(this.initTaskJobCron, () => {
+    this.taskJob = new CronJob(this.initTaskJobCron, async () => {
       const doProcess = this._checkTaskJob();
+      console.log(doProcess);
       if (doProcess) {
-        this._handleTaskJob();
+        await this._handleTaskJob();
       }
     });
 
@@ -84,6 +84,7 @@ export abstract class TaskBase {
       return false;
     }
 
+    return true;
     // TODO: Check List (cron)
   }
 
@@ -132,11 +133,11 @@ export abstract class TaskBase {
     result: Record<string, any> | null,
     elapsedTime: string,
   ): Promise<void> {
-    this.taskLoggerService.log({
-      message: TASK_MESSAGE.SUCCESS,
-      work: result,
-      elapsedTime,
-    });
+    // this.taskLoggerService.log({
+    //   message: TASK_MESSAGE.SUCCESS,
+    //   work: result,
+    //   elapsedTime,
+    // });
   }
 
   // 에러(패닉) 상황 핸들링
@@ -154,11 +155,11 @@ export abstract class TaskBase {
     );
 
     // 에러 로깅
-    this.taskLoggerService.error({
-      message: TASK_MESSAGE.ERROR,
-      errorMessage: e.code,
-      stack: e.stack,
-    });
+    // this.taskLoggerService.error({
+    //   message: TASK_MESSAGE.ERROR,
+    //   errorMessage: e.code,
+    //   stack: e.stack,
+    // });
   }
 
   // 에러(노말) 상황 핸들링
@@ -170,11 +171,11 @@ export abstract class TaskBase {
     );
 
     // 에러 로깅
-    this.taskLoggerService.warn({
-      message: TASK_MESSAGE.WARN,
-      errorMessage: e.code,
-      stack: e.stack,
-    });
+    // this.taskLoggerService.warn({
+    //   message: TASK_MESSAGE.WARN,
+    //   errorMessage: e.code,
+    //   stack: e.stack,
+    // });
   }
 
   /**
