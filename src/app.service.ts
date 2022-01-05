@@ -2,13 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { Task } from '@seongeun/aggregator-base/lib/entity';
 import { TaskService } from '@seongeun/aggregator-base/lib/service';
 import { UpdateResult } from 'typeorm';
-import { TaskManagerService } from './app/manager/task-manager.service';
+import { TaskHandlerService } from './app/handler/task-handler.service';
 
 @Injectable()
 export class AppService {
   constructor(
     private readonly taskService: TaskService,
-    private readonly taskManagerService: TaskManagerService,
+    private readonly taskHandler: TaskHandlerService,
   ) {}
 
   // 모든 작업 가져오기
@@ -21,7 +21,7 @@ export class AppService {
     return this.taskService.repository.updateOneBy(
       {},
       {
-        process: false,
+        active: false,
         panic: false,
         status: true,
       },
@@ -35,7 +35,7 @@ export class AppService {
         id,
       },
       {
-        process: false,
+        active: false,
         status: false,
       },
     );
@@ -50,7 +50,7 @@ export class AppService {
     const tasks = await this.getAllTasks();
 
     tasks.forEach(async ({ id }: { id: string }) => {
-      const isImplementation = this.taskManagerService.isRegisteredTask(id);
+      const isImplementation = this.taskHandler.manager.isRegisteredTask(id);
 
       // DB에 작업 등록이 되어있지만 작업 스크립트가 구현되지않은 경우.
       if (!isImplementation) {
@@ -59,7 +59,7 @@ export class AppService {
         return;
       }
 
-      await this.taskManagerService.startAllTaskWithListener(id);
+      await this.taskHandler.manager.startAllTaskWithListener(id);
     });
   }
 }

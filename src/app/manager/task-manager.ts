@@ -4,7 +4,7 @@ import { isNull } from '@seongeun/aggregator-util/lib/type';
 import { CronJob } from 'cron';
 
 @Injectable()
-export class TaskManagerService {
+export class TaskManager {
   constructor(private readonly manager: SchedulerRegistry) {}
 
   /**

@@ -1,9 +1,9 @@
-export enum EXCEPTION_LEVEL {
+export enum TASK_EXCEPTION_LEVEL {
   NORMAL = 'NORMAL',
   PANIC = 'PANIC',
 }
 
-export enum EXCEPTION_CODE {
+export enum TASK_EXCEPTION_CODE {
   ERR1000 = 'Not found scheduler',
   ERR1001 = 'Unknown exception',
   ERR1002 = 'missing response',

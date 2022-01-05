@@ -2,44 +2,48 @@ import { Injectable } from '@nestjs/common';
 import { WinstonLoggerService } from '@seongeun/aggregator-logger';
 
 @Injectable()
-export class TaskLoggerService {
-  id = 'UNKNOWN_TASK';
-  label = `[${this.id}]`;
-
+export class TaskLogger {
   constructor(private readonly winstonLoggerService: WinstonLoggerService) {}
 
-  injectId(id: string): void {
-    this.id = id;
+  log(
+    label: string,
+    data: {
+      message?: string;
+      work?: Record<string, any>;
+      elapsedTime?: string;
+    },
+  ): void {
+    this.winstonLoggerService.log(this._format('log', label, data));
   }
 
-  log(data: {
-    message?: string;
-    work?: Record<string, any>;
-    elapsedTime?: string;
-  }): void {
-    this.winstonLoggerService.log(this._format('log', data));
+  warn(
+    label: string,
+    data: { message?: string; errorMessage?: string; stack?: any },
+  ): void {
+    this.winstonLoggerService.warn(this._format('warn', label, data));
   }
 
-  warn(data: { message?: string; errorMessage?: string; stack?: any }): void {
-    this.winstonLoggerService.warn(this._format('warn', data));
-  }
-
-  error(data: { message?: string; errorMessage?: string; stack?: any }): void {
-    this.winstonLoggerService.error(this._format('error', data));
+  error(
+    label: string,
+    data: { message?: string; errorMessage?: string; stack?: any; extra?: any },
+  ): void {
+    this.winstonLoggerService.error(this._format('error', label, data));
   }
 
   private _format(
     type = 'log',
+    label: string,
     data: {
       message?: string;
       work?: any;
       stack?: any;
       errorMessage?: string;
       elapsedTime?: string;
+      extra?: string;
     },
   ) {
     const res: any = {
-      id: this.id,
+      id: label,
       message: data.message,
     };
 
@@ -59,6 +63,7 @@ export class TaskLoggerService {
       case 'error': {
         res.errorMessage = data.errorMessage;
         res.stack = JSON.stringify(data.stack);
+        res.extra = JSON.stringify(data.extra);
         break;
       }
     }

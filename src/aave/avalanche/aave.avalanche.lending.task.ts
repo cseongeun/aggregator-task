@@ -11,31 +11,32 @@ import { divideDecimals } from '@seongeun/aggregator-util/lib/decimals';
 import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
 import {
   LendingService,
-  TaskService,
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
 import { Token } from '@seongeun/aggregator-base/lib/entity';
 import { AaveAvalancheSchedulerService } from '@seongeun/aggregator-defi-protocol';
 import { TaskBase } from '../../task.base';
-import { TaskManagerService } from '../../app/manager/task-manager.service';
-import { TaskLoggerService } from '../../app/logger/task-logger.service';
+import { TaskHandlerService } from '../../app/handler/task-handler.service';
+import { TASK_EXCEPTION_LEVEL } from '../../app/exception/task-exception.constant';
+import { TASK_ID } from '../../app.constant';
 
 @Injectable()
 export class AaveAvalancheLendingTask extends TaskBase {
   constructor(
-    public readonly taskService: TaskService,
-    public readonly taskManagerService: TaskManagerService,
-    // public readonly taskLoggerService: TaskLoggerService,
+    public readonly taskHandlerService: TaskHandlerService,
     public readonly lendingService: LendingService,
     public readonly tokenService: TokenService,
     public readonly context: AaveAvalancheSchedulerService,
   ) {
-    super(
-      'AAVE-AVALANCHE-LENDING',
-      taskService,
-      taskManagerService,
-      // taskLoggerService,
-    );
+    super(TASK_ID.AAVE_AVALANCHE_LENDING, taskHandlerService);
+  }
+
+  loggingForm(): Record<string, any> {
+    return {
+      total: 0,
+      success: 0,
+      warn: 0,
+    };
   }
 
   async registerLending(
@@ -156,23 +157,103 @@ export class AaveAvalancheLendingTask extends TaskBase {
     );
   }
 
-  async run(): Promise<Record<string, any> | null> {
-    try {
-      console.log('wow');
-      const reserves = await this.context.getLendingReserveList();
-      const marketInfos = await this.context.getLendingMarketInfos(reserves);
-      for await (const marketInfo of marketInfos) {
-        let queryRunner: QueryRunner | null = null;
+  async process(data: { marketInfo }): Promise<boolean> {
+    let queryRunner: QueryRunner | null = null;
 
-        try {
-          if (isNull(marketInfo)) {
-            continue;
-          }
-          const {
-            reserve,
-            aTokenAddress,
-            stableDebtTokenAddress,
-            variableDebtTokenAddress,
+    try {
+      const { marketInfo } = data;
+
+      if (isNull(marketInfo)) {
+        return true;
+      }
+
+      const {
+        reserve,
+        aTokenAddress,
+        stableDebtTokenAddress,
+        variableDebtTokenAddress,
+        availableLiquidity,
+        totalStableDebt,
+        totalVariableDebt,
+        liquidityRate,
+        variableBorrowRate,
+        stableBorrowRate,
+        variableBorrowIndex,
+        liquidationThreshold,
+        reserveFactor,
+        isActive,
+        isFrozen,
+      } = marketInfo;
+
+      const lendingMarketToken = await this.tokenService.repository.findOneBy({
+        network: this.context.network,
+        address: reserve,
+        status: true,
+      });
+
+      if (isUndefined(lendingMarketToken)) {
+        return true;
+      }
+
+      const lendingMarket = await this.lendingService.repository.findOneBy({
+        protocol: this.context.protocol,
+        supplyToken: lendingMarketToken,
+        borrowToken: lendingMarketToken,
+        address: this.context.lending.address,
+      });
+
+      if (isFrozen || !isActive) {
+        if (!isUndefined(lendingMarket)) {
+          await this.lendingService.repository.updateOneBy(
+            {
+              protocol: this.context.protocol,
+              supplyToken: lendingMarketToken,
+              borrowToken: lendingMarketToken,
+              address: this.context.lending.address,
+            },
+            { status: false },
+          );
+          return true;
+        }
+      }
+
+      queryRunner = await getConnection().createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
+      const [
+        { decimals: aTokenDecimals },
+        { decimals: vTokenDecimals },
+        { decimals: sTokenDecimals },
+      ] = await getBatchERC20TokenInfos(
+        this.context.provider,
+        this.context.multiCallAddress,
+        [aTokenAddress, variableDebtTokenAddress, stableDebtTokenAddress],
+      );
+
+      let initialized = true;
+      if (isUndefined(lendingMarket)) {
+        initialized = await this.registerLending(
+          {
+            supplyToken: lendingMarketToken,
+            borrowToken: lendingMarketToken,
+            address: this.context.lending.address,
+            data: {
+              reserve,
+              aTokenDecimals: aTokenDecimals.toString(),
+              sTokenDecimals: sTokenDecimals.toString(),
+              vTokenDecimals: vTokenDecimals.toString(),
+            },
+          },
+          queryRunner.manager,
+        );
+      }
+
+      if (initialized) {
+        await this.refreshLending(
+          {
+            supplyToken: lendingMarketToken,
+            borrowToken: lendingMarketToken,
             availableLiquidity,
             totalStableDebt,
             totalVariableDebt,
@@ -182,117 +263,61 @@ export class AaveAvalancheLendingTask extends TaskBase {
             variableBorrowIndex,
             liquidationThreshold,
             reserveFactor,
-            isActive,
-            isFrozen,
-          } = marketInfo;
-
-          const lendingMarketToken =
-            await this.tokenService.repository.findOneBy({
-              network: this.context.network,
-              address: reserve,
-              status: true,
-            });
-          console.log(lendingMarketToken);
-
-          if (isUndefined(lendingMarketToken)) {
-            continue;
-          }
-
-          const lendingMarket = await this.lendingService.repository.findOneBy({
-            protocol: this.context.protocol,
-            supplyToken: lendingMarketToken,
-            borrowToken: lendingMarketToken,
-            address: this.context.lending.address,
-          });
-
-          if (isFrozen || !isActive) {
-            if (!isUndefined(lendingMarket)) {
-              await this.lendingService.repository.updateOneBy(
-                {
-                  protocol: this.context.protocol,
-                  supplyToken: lendingMarketToken,
-                  borrowToken: lendingMarketToken,
-                  address: this.context.lending.address,
-                },
-                { status: false },
-              );
-              continue;
-            }
-          }
-
-          queryRunner = await getConnection().createQueryRunner();
-          await queryRunner.connect();
-          await queryRunner.startTransaction();
-
-          const [
-            { decimals: aTokenDecimals },
-            { decimals: vTokenDecimals },
-            { decimals: sTokenDecimals },
-          ] = await getBatchERC20TokenInfos(
-            this.context.provider,
-            this.context.multiCallAddress,
-            [aTokenAddress, variableDebtTokenAddress, stableDebtTokenAddress],
-          );
-
-          let initialized = true;
-          if (isUndefined(lendingMarket)) {
-            initialized = await this.registerLending(
-              {
-                supplyToken: lendingMarketToken,
-                borrowToken: lendingMarketToken,
-                address: this.context.lending.address,
-                data: {
-                  reserve,
-                  aTokenDecimals: aTokenDecimals.toString(),
-                  sTokenDecimals: sTokenDecimals.toString(),
-                  vTokenDecimals: vTokenDecimals.toString(),
-                },
-              },
-              queryRunner.manager,
-            );
-          }
-
-          if (initialized) {
-            await this.refreshLending(
-              {
-                supplyToken: lendingMarketToken,
-                borrowToken: lendingMarketToken,
-                availableLiquidity,
-                totalStableDebt,
-                totalVariableDebt,
-                liquidityRate,
-                variableBorrowRate,
-                stableBorrowRate,
-                variableBorrowIndex,
-                liquidationThreshold,
-                reserveFactor,
-                data: {
-                  reserve,
-                  aTokenDecimals: aTokenDecimals.toString(),
-                  sTokenDecimals: sTokenDecimals.toString(),
-                  vTokenDecimals: vTokenDecimals.toString(),
-                },
-              },
-              queryRunner.manager,
-            );
-          }
-
-          await queryRunner.commitTransaction();
-        } catch (e) {
-          console.log(e);
-          if (!isNull(queryRunner)) {
-            await queryRunner.rollbackTransaction();
-          }
-        } finally {
-          if (!isNull(queryRunner) && !queryRunner?.isReleased) {
-            await queryRunner.release();
-          }
-        }
+            data: {
+              reserve,
+              aTokenDecimals: aTokenDecimals.toString(),
+              sTokenDecimals: sTokenDecimals.toString(),
+              vTokenDecimals: vTokenDecimals.toString(),
+            },
+          },
+          queryRunner.manager,
+        );
       }
-      return {};
+
+      await queryRunner.commitTransaction();
+      return true;
     } catch (e) {
-      console.log(e);
+      if (!isNull(queryRunner)) {
+        await queryRunner.rollbackTransaction();
+      }
+
+      const wrappedError = this.taskHandlerService.wrappedError(e);
+
+      // 인터널 노말 에러 시
+      if (wrappedError.level === TASK_EXCEPTION_LEVEL.NORMAL) {
+        return false;
+      }
+
+      // 인터널 패닉 에러 시
+      throw Error(e);
     } finally {
+      if (!isNull(queryRunner) && !queryRunner?.isReleased) {
+        await queryRunner.release();
+      }
+    }
+  }
+
+  async run(): Promise<Record<string, any> | null> {
+    const log = this.loggingForm();
+
+    try {
+      const reserves = await this.context.getLendingReserveList();
+      const marketInfos = await this.context.getLendingMarketInfos(reserves);
+
+      log.total = marketInfos.length;
+
+      for await (const marketInfo of marketInfos) {
+        const success = await this.process({ marketInfo });
+        if (success) {
+          log.success += 1;
+          continue;
+        }
+        log.warn += 1;
+      }
+
+      return log;
+    } catch (e) {
+      throw Error(e);
     }
   }
 }
