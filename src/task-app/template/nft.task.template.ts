@@ -62,10 +62,12 @@ export abstract class NFTTaskTemplate extends TaskBase {
     totalPids: number[];
     endPid: number;
     imageOrAnimationPath: string;
-  }): Promise<Record<string, any>> {
+  }): Promise<Record<string, any> | null> {
     let queryRunner: QueryRunner | null = null;
     try {
       const { totalPids, endPid, imageOrAnimationPath } = data;
+
+      if (totalPids.length === 0) return;
 
       const nfTokenInfos = await this.context.getNFTokenInfos(totalPids);
 
@@ -128,7 +130,7 @@ export abstract class NFTTaskTemplate extends TaskBase {
       );
 
       await queryRunner.commitTransaction();
-      return {};
+      return;
     } catch (e) {
       if (!isNull(queryRunner)) {
         await queryRunner.rollbackTransaction();

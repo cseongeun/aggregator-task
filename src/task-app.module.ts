@@ -6,7 +6,7 @@ import { TaskAppService } from './task-app.service';
 import { TaskHandlerModule } from './task-app/handler/task-handler.module';
 import { MysqlConfigService } from './task-app/mysql/mysql-config.service';
 import { AirNFTTaskModule } from './air-nft/air-nft.task.module';
-import { ApeSwapModule } from './ape-swap/ape-swap.task.module';
+import { ApeSwapTaskModule } from './ape-swap/ape-swap.task.module';
 
 @Module({
   imports: [
@@ -18,7 +18,7 @@ import { ApeSwapModule } from './ape-swap/ape-swap.task.module';
 
     AirNFTTaskModule,
 
-    ApeSwapModule,
+    ApeSwapTaskModule,
   ],
   providers: [TaskAppService],
   exports: [TaskAppService],

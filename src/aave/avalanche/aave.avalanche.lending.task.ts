@@ -18,7 +18,7 @@ import { AaveAvalancheSchedulerService } from '@seongeun/aggregator-defi-protoco
 import { TaskBase } from '../../task.base';
 import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
 import { TASK_EXCEPTION_LEVEL } from '../../task-app/exception/task-exception.constant';
-import { TASK_ID } from '../../task-app/task-app.constant';
+import { TASK_ID } from '../../task-app.constant';
 
 @Injectable()
 export class AaveAvalancheLendingTask extends TaskBase {
