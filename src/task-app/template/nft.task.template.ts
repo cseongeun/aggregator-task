@@ -50,7 +50,7 @@ export abstract class NFTTaskTemplate extends TaskBase {
 
   async getChunkSize(): Promise<number> {
     const task = await this.taskHandlerService.getTask(this.taskId);
-    return parseInt(get(task.config, 'chunk'), 10) || 110;
+    return parseInt(get(task.config, 'chunk'), 10) || 10;
   }
 
   async getImageOrAnimationPath(): Promise<string> {
@@ -59,59 +59,90 @@ export abstract class NFTTaskTemplate extends TaskBase {
   }
 
   async process(data: {
-    nfTokenInfo: { id: BigNumber; tokenURI: string };
+    totalPids: number[];
+    endPid: number;
     imageOrAnimationPath: string;
   }): Promise<Record<string, any>> {
+    let queryRunner: QueryRunner | null = null;
     try {
-      const {
-        nfTokenInfo: { id, tokenURI },
-        imageOrAnimationPath,
-      } = data;
+      const { totalPids, endPid, imageOrAnimationPath } = data;
 
-      const createParams = {
-        protocol: this.context.protocol,
-        address: this.getNFTokenDetail().address,
-        name: this.getNFTokenDetail().name || '',
-        tokenId: id.toString(),
-        uriType: NF_TOKEN_URI_TYPE.HTTP,
-        tokenUri: tokenURI,
-        tokenUriData: null,
-        imageOrAnimationUri: null,
-      };
+      const nfTokenInfos = await this.context.getNFTokenInfos(totalPids);
 
-      let requestUri = createParams.tokenUri;
+      const createBulkData = [];
 
-      if (tokenURI.startsWith('ipfs:://')) {
-        createParams.uriType = NF_TOKEN_URI_TYPE.IPFS;
-        const hash = tokenURI.replace('ipfs://', '');
-        requestUri = `https://ipfs.io/ipfs/${hash}`;
-      }
-      const isValidURI = checkURI(requestUri);
+      for await (const nfTokenInfo of nfTokenInfos) {
+        const { id, tokenURI } = nfTokenInfo;
 
-      if (isValidURI) {
-        try {
-          createParams.tokenUriData = JSON.stringify(
-            (await axios.get(requestUri)).data,
-          );
+        const data = {
+          protocol: this.context.protocol,
+          address: this.getNFTokenDetail().address,
+          name: this.getNFTokenDetail().name || '',
+          tokenId: id.toString(),
+          uriType: NF_TOKEN_URI_TYPE.HTTP,
+          tokenUri: tokenURI,
+          tokenUriData: null,
+          imageOrAnimationUri: null,
+        };
 
-          createParams.imageOrAnimationUri = get(
-            JSON.parse(createParams.tokenUriData),
-            imageOrAnimationPath,
-          );
-        } catch (e) {
-          // nothing;
+        let requestUri = data.tokenUri;
+
+        if (tokenURI.startsWith('ipfs:://')) {
+          data.uriType = NF_TOKEN_URI_TYPE.IPFS;
+          const hash = tokenURI.replace('ipfs://', '');
+          requestUri = `https://ipfs.io/ipfs/${hash}`;
         }
+        const isValidURI = checkURI(requestUri);
+
+        if (isValidURI) {
+          try {
+            data.tokenUriData = JSON.stringify(
+              (await axios.get(requestUri)).data,
+            );
+
+            data.imageOrAnimationUri = get(
+              JSON.parse(data.tokenUriData),
+              imageOrAnimationPath,
+            );
+          } catch (e) {
+            // nothing;
+          }
+        }
+
+        createBulkData.push(data);
       }
 
-      return { params: createParams };
+      queryRunner = await getConnection().createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
+      await this.nfTokenService.repository.createAllBy(
+        createBulkData,
+        queryRunner.manager,
+      );
+
+      await this.taskHandlerService.updateTask(
+        this.taskId,
+        { pid: endPid },
+        queryRunner.manager,
+      );
+
+      await queryRunner.commitTransaction();
+      return {};
     } catch (e) {
+      if (!isNull(queryRunner)) {
+        await queryRunner.rollbackTransaction();
+      }
+
       throw Error(e);
+    } finally {
+      if (!isNull(queryRunner) && !queryRunner.isReleased) {
+        await queryRunner.release();
+      }
     }
   }
 
   async run(): Promise<Record<string, any>> {
-    let queryRunner: QueryRunner | null = null;
-
     const log = this.loggingForm();
 
     try {
@@ -141,44 +172,11 @@ export abstract class NFTTaskTemplate extends TaskBase {
         startPid,
       );
 
-      const nfTokenInfos = await this.context.getNFTokenInfos(totalPids);
+      await this.process({ totalPids, endPid, imageOrAnimationPath });
 
-      const createBulkParams = [];
-      for await (const nfTokenInfo of nfTokenInfos) {
-        const { params } = await this.process({
-          nfTokenInfo,
-          imageOrAnimationPath,
-        });
-
-        createBulkParams.push(params);
-      }
-
-      queryRunner = await getConnection().createQueryRunner();
-      await queryRunner.connect();
-      await queryRunner.startTransaction();
-
-      await this.nfTokenService.repository.createAllBy(
-        createBulkParams,
-        queryRunner.manager,
-      );
-      await this.taskHandlerService.updateTask(
-        this.taskId,
-        { pid: endPid },
-        queryRunner.manager,
-      );
-
-      await queryRunner.commitTransaction();
       return log;
     } catch (e) {
-      if (!isNull(queryRunner)) {
-        await queryRunner.rollbackTransaction();
-      }
-
-      throw Error(e);
-    } finally {
-      if (!isNull(queryRunner) && !queryRunner.isReleased) {
-        await queryRunner.release();
-      }
+      throw new Error(e);
     }
   }
 }

@@ -9,9 +9,9 @@ import { Task } from '@seongeun/aggregator-base/lib/entity';
 export abstract class TaskBase implements OnModuleInit {
   // 작업 로깅 디테일 폼
   abstract loggingForm(): Record<string, any>;
-  // 작업 내부 루프 중 개별 작업 실행 <개별 작업 성공 여부>
+  // 작업 메인 (단위 테스트를 위한 분리)
   abstract process(data: any): Promise<Record<string, any>>;
-  // 작업 메인 실행 로직 (ex,Loop 생성)
+  // 작업 실행  (ex,Loop 생성)
   abstract run(): Promise<Record<string, any>>;
 
   // 작업 초기 반복
