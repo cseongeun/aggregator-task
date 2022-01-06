@@ -17,7 +17,7 @@ export abstract class TaskBase implements OnModuleInit {
   // 작업 초기 반복
   private initTaskJobCron = CronExpression.EVERY_5_SECONDS;
   // 작업 리스너 반복
-  private initTaskListenerJobCron = CronExpression.EVERY_30_SECONDS;
+  private initTaskListenerJobCron = CronExpression.EVERY_MINUTE;
 
   // 현재 작업 상태
   protected task: Task;
@@ -91,7 +91,7 @@ export abstract class TaskBase implements OnModuleInit {
   }
 
   /**
-   * 작업 리스너 시작 (크론 )
+   * 작업 리스너 시작
    */
   private async _runTaskListenerJob(): Promise<void> {
     try {
@@ -101,8 +101,9 @@ export abstract class TaskBase implements OnModuleInit {
 
       this.isTaskListenerJobWorking = true;
 
-      this.task = await this.taskHandlerService.checkChangedTask(this.task);
+      this.task = await this.taskHandlerService.handleTaskListener(this.task);
     } catch (e) {
+      await this.taskHandlerService.handleListenerError(this.taskId, e);
     } finally {
       this.isTaskListenerJobWorking = false;
     }

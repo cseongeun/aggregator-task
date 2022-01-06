@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Task } from '@seongeun/aggregator-base/lib/entity';
 import { TaskService } from '@seongeun/aggregator-base/lib/service';
+import { isCronString } from '@seongeun/aggregator-util/lib/type';
 import { EntityManager, TransactionManager, UpdateResult } from 'typeorm';
 import {
   TASK_EXCEPTION_CODE,
@@ -45,24 +46,10 @@ export class TaskHandlerService {
     );
   }
 
-  /**
-   * 작업 변경 상태 확인
-   * @param prevTask 기존 작업 상태
-   */
-  async checkChangedTask(prevTask: Task): Promise<Task> {
-    const { id: taskId } = prevTask;
-    const nowTask = await this.getTask(taskId);
-
-    // 작업 실행 상태
-    if (prevTask.status !== nowTask.status) {
-      // 재 실행
-      if (nowTask.status) {
-        await this.handleRestart(taskId);
-      } else {
-        await this.handleStop(taskId);
-      }
-    }
-    return nowTask;
+  async handleInitialStart(taskId: string): Promise<void> {
+    await this.logger.log(taskId, {
+      message: TASK_MESSAGE.INITIAL_START,
+    });
   }
 
   /**
@@ -123,16 +110,54 @@ export class TaskHandlerService {
     }
   }
 
-  async handleInitialStart(taskId: string): Promise<void> {
-    await this.logger.log(taskId, {
-      message: TASK_MESSAGE.INITIAL_START,
-    });
-  }
   /**
-   * 작업 재 실행 시 핸들링
+   * 작업 변경 상태 확인
+   * @param prevTask 기존 작업 상태
+   */
+  async handleTaskListener(prevTask: Task): Promise<Task> {
+    const { id: taskId, status: prevStatus, cron: prevCron } = prevTask;
+
+    const nowTask = await this.getTask(taskId);
+
+    const { status: nowStatus, cron: nowCron } = nowTask;
+
+    // 작업 실행
+    if (prevStatus !== nowStatus) {
+      // 재 실행
+      if (nowStatus) {
+        await this._handleRestart(taskId);
+      } else {
+        await this._handleStop(taskId);
+      }
+    }
+
+    // 작업 크론
+    if (prevCron !== nowCron) {
+      if (isCronString(nowCron)) {
+        await this._handleChangeCron(taskId, nowCron);
+      } else {
+        console.log('invalid cron');
+      }
+    }
+    return nowTask;
+  }
+
+  /**
+   * 작업 리스너 에러 발생 시 핸들링
    * @param taskId 작업 아이디
    */
-  async handleRestart(taskId: string): Promise<void> {
+  async handleListenerError(taskId: string, e: Error): Promise<void> {
+    await this.logger.error(taskId, {
+      message: TASK_MESSAGE.LISTENER_EXCEPTION,
+      stack: e.stack,
+    });
+  }
+
+  /**
+   * 작업 수동 재 실행 시 핸들링
+   * @param taskId 작업 아이디
+   */
+  private async _handleRestart(taskId: string): Promise<void> {
     await this.manager.startTask(taskId);
 
     await this.logger.log(taskId, {
@@ -140,11 +165,27 @@ export class TaskHandlerService {
     });
   }
 
-  async handleStop(taskId: string): Promise<void> {
+  /**
+   * 작업 수동 중단 시 핸들링
+   * @param taskId 작업 아이디
+   */
+  private async _handleStop(taskId: string): Promise<void> {
     await this.manager.stopTask(taskId);
 
     await this.logger.log(taskId, {
       message: TASK_MESSAGE.STOP_MANUALLY,
+    });
+  }
+
+  /**
+   * 작업 크론 변경 시 핸들링
+   * @param taskId
+   */
+  private async _handleChangeCron(taskId: string, cron: string): Promise<void> {
+    await this.manager.updateTaskCron(taskId, cron);
+
+    await this.logger.log(taskId, {
+      message: TASK_MESSAGE.CHANGE_CRON_MANUALLY,
     });
   }
 

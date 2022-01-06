@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { isNull } from '@seongeun/aggregator-util/lib/type';
-import { CronJob } from 'cron';
+import { CronJob, CronTime } from 'cron';
 
 @Injectable()
 export class TaskManager {
   constructor(private readonly manager: SchedulerRegistry) {}
 
   /**
-   * 작업 및 작업 리스너
+   * 작업 및 작업 리스너 조회
    * @param id id
    * @returns taskJob, taskListenerJob
    */
@@ -29,18 +29,21 @@ export class TaskManager {
   }
 
   /**
-   * 작업 등록
+   * 작업 및 작업 리스너 등록
    * @param id 작업 아이디
    * @param task 작업
    * @param taskListener 작업 리스너
    */
-  addTask(id: string, task: CronJob, taskListener: CronJob): void {
+  addTask(id: string, task: CronJob, taskListener?: CronJob): void {
     this.manager.addCronJob(id, task);
-    this.manager.addCronJob(this._generateListenerId(id), taskListener);
+
+    if (taskListener) {
+      this.manager.addCronJob(this._generateListenerId(id), taskListener);
+    }
   }
 
   /**
-   * 작업 삭제
+   * 작업 및 작업 리스너 삭제
    * @param id 작업 아이디
    */
   delTask(id: string): void {
@@ -67,7 +70,7 @@ export class TaskManager {
    * 작업
    * @param id 작업 아이디
    */
-  startTask(id: string) {
+  startTask(id: string): void {
     const { taskJob } = this.getTask(id);
 
     if (!isNull(taskJob)) taskJob.start();
@@ -77,7 +80,7 @@ export class TaskManager {
    * 작업 리스너 시작
    * @param id 작업 아이디
    */
-  startTaskListener(id: string) {
+  startTaskListener(id: string): void {
     const { taskListenerJob } = this.getTask(id);
 
     if (!isNull(taskListenerJob)) taskListenerJob.start();
@@ -87,10 +90,21 @@ export class TaskManager {
    * 작업 중단
    * @param id 작업 아이디
    */
-  stopTask(id: string) {
+  stopTask(id: string): void {
     const { taskJob } = this.getTask(id);
 
     if (!isNull(taskJob)) taskJob.stop();
+  }
+
+  /**
+   * 작업 크론 변경
+   * @param id 작업 아이디
+   * @param newCron 변경 크론
+   */
+  updateTaskCron(id: string, newCron: string): void {
+    const { taskJob } = this.getTask(id);
+    taskJob.setTime(new CronTime(newCron));
+    taskJob.start();
   }
 
   /**
