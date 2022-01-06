@@ -9,6 +9,7 @@ import { AirNFTTaskModule } from './air-nft/air-nft.task.module';
 import { ApeSwapTaskModule } from './ape-swap/ape-swap.task.module';
 import { AutoFarmTaskModule } from './auto-farm/auto-farm.task.module';
 import { BakerySwapTaskModule } from './bakery-swap/bakery-swap.task.module';
+import { BiSwapTaskModule } from './bi-swap/bi-swap.task.module';
 
 @Module({
   imports: [
@@ -25,6 +26,8 @@ import { BakerySwapTaskModule } from './bakery-swap/bakery-swap.task.module';
     AutoFarmTaskModule,
 
     BakerySwapTaskModule,
+
+    BiSwapTaskModule,
   ],
   providers: [TaskAppService],
   exports: [TaskAppService],

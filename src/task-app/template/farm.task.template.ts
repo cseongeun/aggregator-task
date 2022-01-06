@@ -86,9 +86,9 @@ export abstract class FarmTaskTemplate extends TaskBase {
    * @param data 관련 정보
    */
   abstract process(data: {
-    pid;
-    farmInfo;
-    farmState;
+    pid: number;
+    farmInfo: Record<string, any>;
+    farmState: Record<string, any>;
   }): Promise<Record<string, any> | null>;
 
   /**
