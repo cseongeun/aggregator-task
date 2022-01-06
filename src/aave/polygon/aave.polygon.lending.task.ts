@@ -14,7 +14,7 @@ import {
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
 import { Token } from '@seongeun/aggregator-base/lib/entity';
-import { AavePolygonSchedulerService } from '@seongeun/aggregator-defi-protocol';
+import { AavePolygonSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/aave/polygon/aave.polygon.scheduler.service';
 import { TaskBase } from '../../task.base';
 import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
 import { TASK_EXCEPTION_LEVEL } from '../../task-app/exception/task-exception.constant';

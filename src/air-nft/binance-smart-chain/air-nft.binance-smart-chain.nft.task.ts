@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { NFTokenService } from '@seongeun/aggregator-base/lib/service';
-import { AirNFTBinanceSmartChainSchedulerService } from '@seongeun/aggregator-defi-protocol';
+import { AirNFTBinanceSmartChainSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/air-nft/binance-smart-chain/air-nft.binance-smart-chain.scheduler.service';
 import { TASK_ID } from '../../task-app.constant';
 import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
 import { NFTTaskTemplate } from '../../task-app/template/nft.task.template';

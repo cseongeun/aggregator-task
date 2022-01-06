@@ -1,13 +1,19 @@
 import { Injectable } from '@nestjs/common';
+import { BigNumber } from '@ethersproject/bignumber';
+import { EntityManager } from 'typeorm';
+import { Token } from '@seongeun/aggregator-base/lib/entity';
 import {
   FarmService,
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
-import { BigNumber } from '@ethersproject/bignumber';
-import { fillSequenceNumber, zip } from '@seongeun/aggregator-util/lib/array';
+import {
+  fillSequenceNumber,
+  toSplitWithChunkSize,
+  zip,
+} from '@seongeun/aggregator-util/lib/array';
 import { TaskHandlerService } from '../handler/task-handler.service';
 import { TaskBase } from '../../task.base';
-import { Token } from '@seongeun/aggregator-base/lib/entity';
+import { get } from '@seongeun/aggregator-util/lib/object';
 
 @Injectable()
 export abstract class FarmTaskTemplate extends TaskBase {
@@ -24,8 +30,8 @@ export abstract class FarmTaskTemplate extends TaskBase {
   loggingForm(): Record<string, any> {
     return {
       total: 0,
-      start: 0,
-      end: 0,
+      success: 0,
+      warn: 0,
     };
   }
 
@@ -59,7 +65,10 @@ export abstract class FarmTaskTemplate extends TaskBase {
    * 팜 등록
    * @param farmInfo 팜 정보
    */
-  abstract registerFarm(farmInfo: Record<string, any>): Promise<boolean>;
+  abstract registerFarm(
+    farmInfo: Record<string, any>,
+    manager?: EntityManager,
+  ): Promise<boolean>;
 
   /**
    * 팜 업데이트
@@ -69,6 +78,7 @@ export abstract class FarmTaskTemplate extends TaskBase {
   abstract refreshFarm(
     farmInfo: Record<string, any>,
     farmState: Record<string, any>,
+    manager?: EntityManager,
   ): Promise<void>;
 
   /**
@@ -81,22 +91,42 @@ export abstract class FarmTaskTemplate extends TaskBase {
     farmState;
   }): Promise<Record<string, any> | null>;
 
+  /**
+   * 청크 사이즈
+   * @returns 청크 사이즈
+   */
+  async getChunkSize(): Promise<number> {
+    const task = await this.taskHandlerService.getTask(this.taskId);
+    return parseInt(get(task.config, 'chunk'), 10) || 30;
+  }
+
   async run(): Promise<Record<string, any>> {
     const log = this.loggingForm();
 
     try {
-      const [networkPid, farmState] = await Promise.all([
+      const [networkPid, farmState, chunkSize] = await Promise.all([
         this.getNetworkPid(),
         this.getFarmState(),
+        this.getChunkSize(),
       ]);
 
       const totalPids = fillSequenceNumber(networkPid.toNumber());
+
+      // const totalChunkPids = await toSplitWithChunkSize(totalPids, chunkSize);
+
+      // const farmInfos = [];
+
+      // for await (const chunkPids of totalChunkPids) {
+      //   const chunkFarmInfos = await this.getFarmInfos(chunkPids);
+      //   farmInfos.concat(chunkFarmInfos);
+      // }
+
       const farmInfos = await this.getFarmInfos(totalPids);
 
       log.total = farmInfos.length;
 
       for await (const [pid, farmInfo] of zip(totalPids, farmInfos)) {
-        const success = await this.process({ pid, farmInfo, farmState });
+        const { success } = await this.process({ pid, farmInfo, farmState });
 
         if (success) {
           log.success += 1;

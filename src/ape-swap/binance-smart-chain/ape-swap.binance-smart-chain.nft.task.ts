@@ -1,22 +1,27 @@
 import { Injectable } from '@nestjs/common';
-import { TokenService } from '@seongeun/aggregator-base/lib/service';
+import { NFTokenService } from '@seongeun/aggregator-base/lib/service';
 import { ApeSwapBinanceSmartChainSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/ape-swap/binance-smart-chain/ape-swap.binance-smart-chain.scheduler.service';
 import { TASK_ID } from '../../task-app.constant';
 import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
-import { DexTaskTemplate } from '../../task-app/template/dex.task.template';
+import { NFTTaskTemplate } from '../../task-app/template/nft.task.template';
 
 @Injectable()
-export class ApeSwapBinanceSmartChainDexTask extends DexTaskTemplate {
+export class ApeSwapBinanceSmartChainNFTTask extends NFTTaskTemplate {
   constructor(
     public readonly taskHandlerService: TaskHandlerService,
-    public readonly tokenService: TokenService,
+    public readonly nfTokenService: NFTokenService,
     public readonly context: ApeSwapBinanceSmartChainSchedulerService,
   ) {
     super(
-      TASK_ID.APE_SWAP_BINANCE_SMART_CHAIN_DEX,
+      TASK_ID.APE_SWAP_BINANCE_SMART_CHAIN_NFT,
       taskHandlerService,
-      tokenService,
+      nfTokenService,
       context,
     );
+  }
+
+  getNFTokenDetail(): { name: string; address: string } {
+    const target = this.context.nfToken;
+    return { name: target.name, address: target.address };
   }
 }

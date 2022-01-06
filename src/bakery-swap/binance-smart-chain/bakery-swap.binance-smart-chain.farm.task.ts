@@ -1,18 +1,21 @@
-import { BigNumber } from '@ethersproject/bignumber';
 import { Injectable } from '@nestjs/common';
 import BigNumberJs from 'bignumber.js';
+import { Token } from '@seongeun/aggregator-base/lib/entity';
+import {
+  FarmService,
+  TokenService,
+} from '@seongeun/aggregator-base/lib/service';
+import { BakerySwapBinanceSmartChainSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/bakery-swap/binance-smart-chain/bakery-swap.binance-smart-chain.scheduler.service';
+import { BigNumber } from 'ethers';
 import {
   EntityManager,
   getConnection,
   QueryRunner,
   TransactionManager,
 } from 'typeorm';
-import { ApeSwapBinanceSmartChainSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/ape-swap/binance-smart-chain/ape-swap.binance-smart-chain.scheduler.service';
-import {
-  FarmService,
-  TokenService,
-} from '@seongeun/aggregator-base/lib/service';
-import { Token } from '@seongeun/aggregator-base/lib/entity';
+import { TASK_ID } from '../../task-app.constant';
+import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
+import { FarmTaskTemplate } from '../../task-app/template/farm.task.template';
 import { divideDecimals } from '@seongeun/aggregator-util/lib/decimals';
 import { div, isZero, mul } from '@seongeun/aggregator-util/lib/bignumber';
 import {
@@ -21,23 +24,20 @@ import {
   ZERO,
 } from '@seongeun/aggregator-util/lib/constant';
 import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
-import { getSafeERC20BalanceOf } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
 import { getFarmAssetName } from '@seongeun/aggregator-util/lib/naming';
+import { getSafeERC20BalanceOf } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
 import { TASK_EXCEPTION_LEVEL } from '../../task-app/exception/task-exception.constant';
-import { TASK_ID } from '../../task-app.constant';
-import { FarmTaskTemplate } from '../../task-app/template/farm.task.template';
-import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
 
 @Injectable()
-export class ApeSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
+export class BakerySwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
   constructor(
     public readonly taskHandlerService: TaskHandlerService,
     public readonly farmService: FarmService,
     public readonly tokenService: TokenService,
-    public readonly context: ApeSwapBinanceSmartChainSchedulerService,
+    public readonly context: BakerySwapBinanceSmartChainSchedulerService,
   ) {
     super(
-      TASK_ID.APE_SWAP_BINANCE_SMART_CHAIN_FARM,
+      TASK_ID.BAKERY_SWAP_BINANCE_SMART_CHAIN_FARM,
       taskHandlerService,
       farmService,
       tokenService,
@@ -57,11 +57,19 @@ export class ApeSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
     };
   }
 
-  async getNetworkPid(): Promise<BigNumber> {
+  getNetworkPid(): Promise<BigNumber> {
     return this.context.getFarmTotalLength();
   }
 
-  async getFarmInfos(sequence: number[]): Promise<Record<string, any>[]> {
+  getFarmInfos(sequence: number[]): Promise<
+    {
+      lpToken: string;
+      allocPoint: BigNumber;
+      lastRewardBlock: BigNumber;
+      accTokenPerShare: BigNumber;
+      exists: boolean;
+    }[]
+  > {
     return this.context.getFarmInfos(sequence);
   }
 
@@ -114,7 +122,6 @@ export class ApeSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
       manager,
     );
 
-    // 스테이킹 토큰이 미등록 or 비활성화 일 경우, 팜 등록 제외
     if (isUndefined(stakeToken)) return false;
 
     await this.farmService.repository.createOneBy(
@@ -126,14 +133,14 @@ export class ApeSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
         assets: getFarmAssetName([stakeToken], [this.getRewardToken()]),
         stakeTokens: [stakeToken],
         rewardTokens: [this.getRewardToken()],
+        data: JSON.stringify({ lpToken: farmInfo.lpToken }),
       },
       manager,
     );
     return true;
   }
-
   async refreshFarm(
-    farmInfo: { pid: number; allocPoint: BigNumber },
+    farmInfo: { pid: number; allocPoint: BigNumber; lpToken: string },
     farmState: {
       totalAllocPoint: BigNumber;
       rewardValueInOneYear: BigNumberJs;
@@ -147,6 +154,7 @@ export class ApeSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
           name: this.getFarmDetail().name,
           address: this.getFarmDetail().address,
           pid: farmInfo.pid,
+          data: JSON.stringify({ lpToken: farmInfo.lpToken }),
         },
         manager,
       );
@@ -199,12 +207,14 @@ export class ApeSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
       manager,
     );
   }
-
   async process(data: {
     pid: number;
     farmInfo: {
       lpToken: string;
       allocPoint: BigNumber;
+      lastRewardBlock: BigNumber;
+      accTokenPerShare: BigNumber;
+      exists: boolean;
     };
     farmState: {
       totalAllocPoint: BigNumber;
@@ -212,7 +222,6 @@ export class ApeSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
     };
   }): Promise<Record<string, any>> {
     let queryRunner: QueryRunner | null = null;
-
     try {
       const { pid, farmInfo, farmState } = data;
 
@@ -225,15 +234,17 @@ export class ApeSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
 
       if (isNull(farmInfo)) return { success: true };
 
-      const { lpToken, allocPoint } = farmInfo;
+      const { lpToken, allocPoint, exists } = farmInfo;
 
-      if (isZero(allocPoint)) {
+      if (isZero(allocPoint) || !exists) {
         if (!isUndefined(farm)) {
           await this.farmService.repository.updateOneBy(
             {
               id: farm.id,
             },
-            { status: false },
+            {
+              status: false,
+            },
           );
           return { success: true };
         }
@@ -243,7 +254,6 @@ export class ApeSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
       await queryRunner.connect();
       await queryRunner.startTransaction();
 
-      // 신규 풀 등록
       let initialized = true;
       if (isUndefined(farm)) {
         initialized = await this.registerFarm(
@@ -251,17 +261,15 @@ export class ApeSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
           queryRunner.manager,
         );
       }
-
-      // 풀 업데이트
       if (initialized) {
         await this.refreshFarm(
-          { pid, allocPoint },
+          { pid, allocPoint, lpToken },
           farmState,
           queryRunner.manager,
         );
       }
-      await queryRunner.commitTransaction();
 
+      await queryRunner.commitTransaction();
       return { success: true };
     } catch (e) {
       if (!isNull(queryRunner)) {

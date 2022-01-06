@@ -14,7 +14,7 @@ import {
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
 import { Token } from '@seongeun/aggregator-base/lib/entity';
-import { AaveAvalancheSchedulerService } from '@seongeun/aggregator-defi-protocol';
+import { AaveAvalancheSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/aave/avalanche/aave.avalanche.scheduler.service';
 import { TaskBase } from '../../task.base';
 import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
 import { TASK_EXCEPTION_LEVEL } from '../../task-app/exception/task-exception.constant';
@@ -307,7 +307,8 @@ export class AaveAvalancheLendingTask extends TaskBase {
       log.total = marketInfos.length;
 
       for await (const marketInfo of marketInfos) {
-        const success = await this.process({ marketInfo });
+        const { success } = await this.process({ marketInfo });
+
         if (success) {
           log.success += 1;
           continue;
