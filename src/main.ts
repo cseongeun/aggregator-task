@@ -1,9 +1,9 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { AppService } from './app.service';
+import { TaskAppModule } from './task-app.module';
+import { TaskAppService } from './task-app.service';
 
 (async () => {
-  const App = await NestFactory.createApplicationContext(AppModule);
+  const TaskApp = await NestFactory.createApplicationContext(TaskAppModule);
 
   // const logger = app.get<BaseLoggerService>(BaseLoggerService);
   // app.useLogger(logger);
@@ -11,6 +11,6 @@ import { AppService } from './app.service';
   // const sentry = app.get<BaseSentryService>(BaseSentryService);
   // sentry.init(config.sentryDSN);
 
-  const service = App.get<AppService>(AppService);
+  const service = TaskApp.get<TaskAppService>(TaskAppService);
   service.start();
 })();

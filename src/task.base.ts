@@ -1,24 +1,28 @@
 import { CronJob } from 'cron';
 import { CronExpression } from '@nestjs/schedule';
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { getElapsedTime } from '@seongeun/aggregator-util/lib/time';
-import { TaskHandlerService } from './app/handler/task-handler.service';
+import { TaskHandlerService } from './task-app/handler/task-handler.service';
+import { Task } from '@seongeun/aggregator-base/lib/entity';
 
 @Injectable()
-export abstract class TaskBase {
+export abstract class TaskBase implements OnModuleInit {
   // 작업 로깅 디테일 폼
-  abstract loggingForm(): Record<string, any> | null;
+  abstract loggingForm(): Record<string, any>;
   // 작업 내부 루프 중 개별 작업 실행 <개별 작업 성공 여부>
-  abstract process(data: any): Promise<boolean>;
+  abstract process(data: any): Promise<Record<string, any>>;
   // 작업 메인 실행 로직 (ex,Loop 생성)
-  abstract run(): Promise<Record<string, any> | null>;
+  abstract run(): Promise<Record<string, any>>;
 
-  // 작업 아이디
-  private taskId: string;
   // 작업 초기 반복
   private initTaskJobCron = CronExpression.EVERY_5_SECONDS;
   // 작업 리스너 반복
-  private initTaskListenerJobCron = CronExpression.EVERY_10_MINUTES;
+  private initTaskListenerJobCron = CronExpression.EVERY_30_SECONDS;
+
+  // 현재 작업 상태
+  protected task: Task;
+  // 작업 아이디
+  protected taskId: string;
   // 작업
   protected taskJob: CronJob = null;
   // 작업 리스너
@@ -53,6 +57,11 @@ export abstract class TaskBase {
     );
   }
 
+  async onModuleInit(): Promise<void> {
+    // 시작 작업 상태 업데이트
+    this.task = await this.taskHandlerService.getTask(this.taskId);
+  }
+
   /**
    * 작업 시작
    */
@@ -85,6 +94,17 @@ export abstract class TaskBase {
    * 작업 리스너 시작 (크론 )
    */
   private async _runTaskListenerJob(): Promise<void> {
-    return;
+    try {
+      if (this.isTaskListenerJobWorking) {
+        return;
+      }
+
+      this.isTaskListenerJobWorking = true;
+
+      this.task = await this.taskHandlerService.checkChangedTask(this.task);
+    } catch (e) {
+    } finally {
+      this.isTaskListenerJobWorking = false;
+    }
   }
 }

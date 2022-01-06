@@ -16,17 +16,17 @@ import {
 import { Token } from '@seongeun/aggregator-base/lib/entity';
 import { AavePolygonSchedulerService } from '@seongeun/aggregator-defi-protocol';
 import { TaskBase } from '../../task.base';
-import { TaskHandlerService } from '../../app/handler/task-handler.service';
-import { TASK_EXCEPTION_LEVEL } from '../../app/exception/task-exception.constant';
-import { TASK_ID } from '../../app.constant';
+import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
+import { TASK_EXCEPTION_LEVEL } from '../../task-app/exception/task-exception.constant';
+import { TASK_ID } from '../../task-app/task-app.constant';
 
 @Injectable()
 export class AavePolygonLendingTask extends TaskBase {
   constructor(
     public readonly taskHandlerService: TaskHandlerService,
     public readonly tokenService: TokenService,
-    public readonly lendingService: LendingService,
-    public readonly context: AavePolygonSchedulerService,
+    private readonly lendingService: LendingService,
+    private readonly context: AavePolygonSchedulerService,
   ) {
     super(TASK_ID.AAVE_POLYGON_LENDING, taskHandlerService);
   }
@@ -157,14 +157,14 @@ export class AavePolygonLendingTask extends TaskBase {
     );
   }
 
-  async process(data: { marketInfo }): Promise<boolean> {
+  async process(data: { marketInfo }): Promise<Record<string, any>> {
     let queryRunner: QueryRunner | null = null;
 
     try {
       const { marketInfo } = data;
 
       if (isNull(marketInfo)) {
-        return true;
+        return { success: true };
       }
 
       const {
@@ -192,7 +192,7 @@ export class AavePolygonLendingTask extends TaskBase {
       });
 
       if (isUndefined(lendingMarketToken)) {
-        return true;
+        return { success: true };
       }
 
       const lendingMarket = await this.lendingService.repository.findOneBy({
@@ -213,7 +213,7 @@ export class AavePolygonLendingTask extends TaskBase {
             },
             { status: false },
           );
-          return true;
+          return { success: true };
         }
       }
 
@@ -275,7 +275,7 @@ export class AavePolygonLendingTask extends TaskBase {
       }
 
       await queryRunner.commitTransaction();
-      return true;
+      return { success: true };
     } catch (e) {
       if (!isNull(queryRunner) && queryRunner.isTransactionActive) {
         await queryRunner.rollbackTransaction();
@@ -285,7 +285,7 @@ export class AavePolygonLendingTask extends TaskBase {
 
       // 인터널 노말 에러 시
       if (wrappedError.level === TASK_EXCEPTION_LEVEL.NORMAL) {
-        return false;
+        return { success: false };
       }
 
       // 인터널 패닉 에러 시
@@ -297,7 +297,7 @@ export class AavePolygonLendingTask extends TaskBase {
     }
   }
 
-  async run(): Promise<Record<string, any> | null> {
+  async run(): Promise<Record<string, any>> {
     const log = this.loggingForm();
 
     try {
@@ -307,7 +307,7 @@ export class AavePolygonLendingTask extends TaskBase {
       log.total = marketInfos.length;
 
       for await (const marketInfo of marketInfos) {
-        const success = await this.process({ marketInfo });
+        const { success } = await this.process({ marketInfo });
 
         if (success) {
           log.success += 1;

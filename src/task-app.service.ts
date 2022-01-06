@@ -2,10 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { Task } from '@seongeun/aggregator-base/lib/entity';
 import { TaskService } from '@seongeun/aggregator-base/lib/service';
 import { UpdateResult } from 'typeorm';
-import { TaskHandlerService } from './app/handler/task-handler.service';
+import { TaskHandlerService } from './task-app/handler/task-handler.service';
 
 @Injectable()
-export class AppService {
+export class TaskAppService {
   constructor(
     private readonly taskService: TaskService,
     private readonly taskHandler: TaskHandlerService,
@@ -23,7 +23,7 @@ export class AppService {
       {
         active: false,
         panic: false,
-        status: true,
+        // status: true,
       },
     );
   }
@@ -49,7 +49,7 @@ export class AppService {
 
     const tasks = await this.getAllTasks();
 
-    tasks.forEach(async ({ id }: { id: string }) => {
+    tasks.forEach(async ({ id, status }: { id: string; status: boolean }) => {
       const isImplementation = this.taskHandler.manager.isRegisteredTask(id);
 
       // DB에 작업 등록이 되어있지만 작업 스크립트가 구현되지않은 경우.
@@ -59,7 +59,15 @@ export class AppService {
         return;
       }
 
-      await this.taskHandler.manager.startAllTaskWithListener(id);
+      if (status) {
+        // 작업 및 작업 리스너 시작
+        await this.taskHandler.manager.startTask(id);
+        await this.taskHandler.manager.startTaskListener(id);
+        await this.taskHandler.handleInitialStart(id);
+      } else {
+        // 작업 리스너만 시작
+        await this.taskHandler.manager.startTaskListener(id);
+      }
     });
   }
 }

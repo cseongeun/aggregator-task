@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { Task } from '@seongeun/aggregator-base/lib/entity';
 import { TaskService } from '@seongeun/aggregator-base/lib/service';
+import { EntityManager, TransactionManager, UpdateResult } from 'typeorm';
 import {
   TASK_EXCEPTION_CODE,
   TASK_EXCEPTION_LEVEL,
@@ -16,6 +18,52 @@ export class TaskHandlerService {
     public readonly logger: TaskLogger,
     public readonly manager: TaskManager,
   ) {}
+
+  /**
+   * DB 작업 상태 가져오기
+   * @param taskId taskId
+   */
+  async getTask(taskId: string): Promise<Task> {
+    return this.taskService.repository.findOneBy({ id: taskId });
+  }
+
+  /**
+   * DB 작업 상태 업데이트
+   * @param taskId 작업 아이디
+   * @param params 작업 상태 업데이트
+   * @param manager 트랜잭션 매니저
+   */
+  async updateTask(
+    taskId: string,
+    params: { pid?: number; blockNumber?: number; data?: any },
+    @TransactionManager() manager: EntityManager,
+  ): Promise<UpdateResult> {
+    return this.taskService.repository.updateOneBy(
+      { id: taskId },
+      params,
+      manager,
+    );
+  }
+
+  /**
+   * 작업 변경 상태 확인
+   * @param prevTask 기존 작업 상태
+   */
+  async checkChangedTask(prevTask: Task): Promise<Task> {
+    const { id: taskId } = prevTask;
+    const nowTask = await this.getTask(taskId);
+
+    // 작업 실행 상태
+    if (prevTask.status !== nowTask.status) {
+      // 재 실행
+      if (nowTask.status) {
+        await this.handleRestart(taskId);
+      } else {
+        await this.handleStop(taskId);
+      }
+    }
+    return nowTask;
+  }
 
   /**
    * 작업 성공 시 핸들링
@@ -38,7 +86,7 @@ export class TaskHandlerService {
     // 진행 초기화
     await this.taskService.repository.update(
       { id: taskId },
-      { status: true, active: false, latestElapsedSecond: params.elapsedTime },
+      { active: false, latestElapsedSecond: params.elapsedTime },
     );
   }
 
@@ -75,6 +123,31 @@ export class TaskHandlerService {
     }
   }
 
+  async handleInitialStart(taskId: string): Promise<void> {
+    await this.logger.log(taskId, {
+      message: TASK_MESSAGE.INITIAL_START,
+    });
+  }
+  /**
+   * 작업 재 실행 시 핸들링
+   * @param taskId 작업 아이디
+   */
+  async handleRestart(taskId: string): Promise<void> {
+    await this.manager.startTask(taskId);
+
+    await this.logger.log(taskId, {
+      message: TASK_MESSAGE.RESTART_MANUALLY,
+    });
+  }
+
+  async handleStop(taskId: string): Promise<void> {
+    await this.manager.stopTask(taskId);
+
+    await this.logger.log(taskId, {
+      message: TASK_MESSAGE.STOP_MANUALLY,
+    });
+  }
+
   /**
    * 작업 노말 에러 발생 시 핸들링
    * @param id 작업 아이디
@@ -91,10 +164,7 @@ export class TaskHandlerService {
     });
 
     // 진행 초기화
-    await this.taskService.repository.update(
-      { id: taskId },
-      { status: true, active: false },
-    );
+    await this.taskService.repository.update({ id: taskId }, { active: false });
   }
 
   /**

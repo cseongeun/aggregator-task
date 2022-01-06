@@ -64,13 +64,22 @@ export class TaskManager {
   }
 
   /**
-   * 작업 및 작업 리스너 시작
+   * 작업
    * @param id 작업 아이디
    */
-  startAllTaskWithListener(id: string) {
-    const { taskJob, taskListenerJob } = this.getTask(id);
+  startTask(id: string) {
+    const { taskJob } = this.getTask(id);
 
     if (!isNull(taskJob)) taskJob.start();
+  }
+
+  /**
+   * 작업 리스너 시작
+   * @param id 작업 아이디
+   */
+  startTaskListener(id: string) {
+    const { taskListenerJob } = this.getTask(id);
+
     if (!isNull(taskListenerJob)) taskListenerJob.start();
   }
 

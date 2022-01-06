@@ -16,17 +16,17 @@ import {
 import { Token } from '@seongeun/aggregator-base/lib/entity';
 import { AaveAvalancheSchedulerService } from '@seongeun/aggregator-defi-protocol';
 import { TaskBase } from '../../task.base';
-import { TaskHandlerService } from '../../app/handler/task-handler.service';
-import { TASK_EXCEPTION_LEVEL } from '../../app/exception/task-exception.constant';
-import { TASK_ID } from '../../app.constant';
+import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
+import { TASK_EXCEPTION_LEVEL } from '../../task-app/exception/task-exception.constant';
+import { TASK_ID } from '../../task-app/task-app.constant';
 
 @Injectable()
 export class AaveAvalancheLendingTask extends TaskBase {
   constructor(
     public readonly taskHandlerService: TaskHandlerService,
     public readonly lendingService: LendingService,
-    public readonly tokenService: TokenService,
-    public readonly context: AaveAvalancheSchedulerService,
+    private readonly tokenService: TokenService,
+    private readonly context: AaveAvalancheSchedulerService,
   ) {
     super(TASK_ID.AAVE_AVALANCHE_LENDING, taskHandlerService);
   }
@@ -157,14 +157,14 @@ export class AaveAvalancheLendingTask extends TaskBase {
     );
   }
 
-  async process(data: { marketInfo }): Promise<boolean> {
+  async process(data: { marketInfo }): Promise<Record<string, any>> {
     let queryRunner: QueryRunner | null = null;
 
     try {
       const { marketInfo } = data;
 
       if (isNull(marketInfo)) {
-        return true;
+        return { success: true };
       }
 
       const {
@@ -192,7 +192,7 @@ export class AaveAvalancheLendingTask extends TaskBase {
       });
 
       if (isUndefined(lendingMarketToken)) {
-        return true;
+        return { success: true };
       }
 
       const lendingMarket = await this.lendingService.repository.findOneBy({
@@ -213,7 +213,7 @@ export class AaveAvalancheLendingTask extends TaskBase {
             },
             { status: false },
           );
-          return true;
+          return { success: true };
         }
       }
 
@@ -275,7 +275,7 @@ export class AaveAvalancheLendingTask extends TaskBase {
       }
 
       await queryRunner.commitTransaction();
-      return true;
+      return { success: true };
     } catch (e) {
       if (!isNull(queryRunner)) {
         await queryRunner.rollbackTransaction();
@@ -285,7 +285,7 @@ export class AaveAvalancheLendingTask extends TaskBase {
 
       // 인터널 노말 에러 시
       if (wrappedError.level === TASK_EXCEPTION_LEVEL.NORMAL) {
-        return false;
+        return { success: false };
       }
 
       // 인터널 패닉 에러 시
