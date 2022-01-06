@@ -51,15 +51,14 @@ export abstract class FarmTaskTemplate extends TaskBase {
   abstract getNetworkPid(): Promise<BigNumber>;
 
   /**
-   * 팜의 상태
-   */
-  abstract getFarmState(): Promise<Record<string, any>>;
-
-  /**
    * 팜의 정보
    * @param sequence pids
    */
   abstract getFarmInfos(sequence: number[]): Promise<Record<string, any>[]>;
+  /**
+   * 팜의 상태
+   */
+  abstract getFarmState(): Promise<Record<string, any>>;
 
   /**
    * 팜 등록

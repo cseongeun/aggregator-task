@@ -1,12 +1,17 @@
-import { BigNumber } from '@ethersproject/bignumber';
 import { Injectable } from '@nestjs/common';
+import { Token } from '@seongeun/aggregator-base/lib/entity';
 import BigNumberJs from 'bignumber.js';
-import { EntityManager, getConnection, QueryRunner } from 'typeorm';
+
 import {
   FarmService,
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
-import { Token } from '@seongeun/aggregator-base/lib/entity';
+import { PancakeSwapBinanceSmartChainSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/pancake-swap/binance-smart-chain/pancake-swap.binance-smart-chain.scheduler.service';
+import { BigNumber } from 'ethers';
+import { EntityManager, getConnection, QueryRunner } from 'typeorm';
+import { TASK_ID } from '../../task-app.constant';
+import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
+import { FarmTaskTemplate } from '../../task-app/template/farm.task.template';
 import { divideDecimals } from '@seongeun/aggregator-util/lib/decimals';
 import { div, isZero, mul } from '@seongeun/aggregator-util/lib/bignumber';
 import {
@@ -14,25 +19,21 @@ import {
   ONE_YEAR_DAYS,
   ZERO,
 } from '@seongeun/aggregator-util/lib/constant';
-import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
 import { getSafeERC20BalanceOf } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
-import { getFarmAssetName } from '@seongeun/aggregator-util/lib/naming';
+import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
 import { TASK_EXCEPTION_LEVEL } from '../../task-app/exception/task-exception.constant';
-import { TASK_ID } from '../../task-app.constant';
-import { FarmTaskTemplate } from '../../task-app/template/farm.task.template';
-import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
-import { BiSwapBinanceSmartChainSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/bi-swap/binance-smart-chain/bi-swap.binance-smart-chain.scheduler.service';
+import { getFarmAssetName } from '@seongeun/aggregator-util/lib/naming';
 
 @Injectable()
-export class BiSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
+export class PancakeSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
   constructor(
     public readonly taskHandlerService: TaskHandlerService,
     public readonly farmService: FarmService,
     public readonly tokenService: TokenService,
-    public readonly context: BiSwapBinanceSmartChainSchedulerService,
+    public readonly context: PancakeSwapBinanceSmartChainSchedulerService,
   ) {
     super(
-      TASK_ID.BI_SWAP_BINANCE_SMART_CHAIN_FARM,
+      TASK_ID.PANCAKE_SWAP_BINANCE_SMART_CHAIN_FARM,
       taskHandlerService,
       farmService,
       tokenService,
@@ -51,9 +52,22 @@ export class BiSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
       address: target.address,
     };
   }
+
   getNetworkPid(): Promise<BigNumber> {
     return this.context.getFarmTotalLength();
   }
+
+  getFarmInfos(sequence: number[]): Promise<
+    {
+      lpToken: string;
+      allocPoint: BigNumber;
+      lastRewardBlock: BigNumber;
+      accCakePerShare: BigNumber;
+    }[]
+  > {
+    return this.context.getFarmInfos(sequence);
+  }
+
   async getFarmState(): Promise<{
     totalAllocPoint: BigNumber;
     rewardValueInOneYear: BigNumberJs;
@@ -89,16 +103,7 @@ export class BiSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
       rewardValueInOneYear,
     };
   }
-  getFarmInfos(sequence: number[]): Promise<
-    {
-      lpToken: string;
-      allocPoint: BigNumber;
-      lastRewardBlock: BigNumber;
-      accBSWPerShare: BigNumber;
-    }[]
-  > {
-    return this.context.getFarmInfos(sequence);
-  }
+
   async registerFarm(
     farmInfo: { pid: number; lpToken: string },
     manager?: EntityManager,
@@ -112,6 +117,7 @@ export class BiSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
       manager,
     );
 
+    // 스테이킹 토큰이 미등록 or 비활성화 일 경우, 팜 등록 제외
     if (isUndefined(stakeToken)) return false;
 
     await this.farmService.repository.createOneBy(
@@ -128,6 +134,7 @@ export class BiSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
     );
     return true;
   }
+
   async refreshFarm(
     farmInfo: { pid: number; allocPoint: BigNumber },
     farmState: {
@@ -195,13 +202,14 @@ export class BiSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
       manager,
     );
   }
+
   async process(data: {
     pid: number;
     farmInfo: {
       lpToken: string;
       allocPoint: BigNumber;
       lastRewardBlock: BigNumber;
-      accBSWPerShare: BigNumber;
+      accCakePerShare: BigNumber;
     };
     farmState: {
       totalAllocPoint: BigNumber;

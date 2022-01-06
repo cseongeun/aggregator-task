@@ -1,38 +1,40 @@
-import { BigNumber } from '@ethersproject/bignumber';
 import { Injectable } from '@nestjs/common';
 import BigNumberJs from 'bignumber.js';
+import { BigNumber } from 'ethers';
 import { EntityManager, getConnection, QueryRunner } from 'typeorm';
+import { Token } from '@seongeun/aggregator-base/lib/entity';
 import {
   FarmService,
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
-import { Token } from '@seongeun/aggregator-base/lib/entity';
-import { divideDecimals } from '@seongeun/aggregator-util/lib/decimals';
-import { div, isZero, mul } from '@seongeun/aggregator-util/lib/bignumber';
+import { ONE_YEAR_SECONDS, ZERO } from '@seongeun/aggregator-util/lib/constant';
 import {
-  ONE_DAY_SECONDS,
-  ONE_YEAR_DAYS,
-  ZERO,
-} from '@seongeun/aggregator-util/lib/constant';
+  add,
+  div,
+  isGreaterThan,
+  isZero,
+  mul,
+  sub,
+} from '@seongeun/aggregator-util/lib/bignumber';
+import { divideDecimals } from '@seongeun/aggregator-util/lib/decimals';
 import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
-import { getSafeERC20BalanceOf } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
 import { getFarmAssetName } from '@seongeun/aggregator-util/lib/naming';
 import { TASK_EXCEPTION_LEVEL } from '../../task-app/exception/task-exception.constant';
 import { TASK_ID } from '../../task-app.constant';
-import { FarmTaskTemplate } from '../../task-app/template/farm.task.template';
 import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
-import { BiSwapBinanceSmartChainSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/bi-swap/binance-smart-chain/bi-swap.binance-smart-chain.scheduler.service';
+import { FarmTaskTemplate } from '../../task-app/template/farm.task.template';
+import { MdexHecoSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/mdex/heco/mdex.heco.scheduler.service';
 
 @Injectable()
-export class BiSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
+export class MdexHecoFarmTask extends FarmTaskTemplate {
   constructor(
     public readonly taskHandlerService: TaskHandlerService,
     public readonly farmService: FarmService,
     public readonly tokenService: TokenService,
-    public readonly context: BiSwapBinanceSmartChainSchedulerService,
+    public readonly context: MdexHecoSchedulerService,
   ) {
     super(
-      TASK_ID.BI_SWAP_BINANCE_SMART_CHAIN_FARM,
+      TASK_ID.MDEX_HECO_FARM,
       taskHandlerService,
       farmService,
       tokenService,
@@ -51,54 +53,83 @@ export class BiSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
       address: target.address,
     };
   }
+
   getNetworkPid(): Promise<BigNumber> {
     return this.context.getFarmTotalLength();
   }
+
   async getFarmState(): Promise<{
     totalAllocPoint: BigNumber;
     rewardValueInOneYear: BigNumberJs;
   }> {
-    const [totalAllocPoint, rewardPerBlock] = await Promise.all([
-      this.context.getFarmTotalAllocPoint(),
-      this.context.getFarmRewardPerBlock(),
+    const [currentBlockNumber, totalAllocPoint, halvingPeriod, startBlock] =
+      await Promise.all([
+        this.context.getBlockNumber(),
+        this.context.getFarmTotalAllocPoint(),
+        this.context.getFarmHalvingPeriod(),
+        this.context.getFarmStartBlock(),
+      ]);
+    let rewardAmountInOneYear = ZERO;
+
+    let l: any = currentBlockNumber;
+    const afterOneYearBlockNumber = add(
+      currentBlockNumber,
+      div(ONE_YEAR_SECONDS, this.context.blockTimeSecond),
+    );
+    // eslint-disable-next-line prefer-const
+    let [n, m]: [any, any] = await Promise.all([
+      this.context.getFarmPhase(currentBlockNumber),
+      this.context.getFarmPhase(afterOneYearBlockNumber.toString()),
     ]);
 
-    // 블록 당 리워드 갯수
-    const rewardAmountInOneBlock = divideDecimals(
-      rewardPerBlock.toString(),
+    while (isGreaterThan(m, n)) {
+      n = add(n, 1);
+      const r = add(mul(n, halvingPeriod), startBlock);
+      rewardAmountInOneYear = add(
+        rewardAmountInOneYear,
+        mul(sub(r, l), await this.context.getFarmReward(r.toString())),
+      );
+      l = r;
+
+      rewardAmountInOneYear = add(
+        rewardAmountInOneYear,
+        mul(
+          sub(afterOneYearBlockNumber, l),
+          await this.context.getFarmReward(afterOneYearBlockNumber.toString()),
+        ),
+      );
+    }
+
+    // 일년 총 리워드 갯수
+    const totalRewardAmountInOneYear = divideDecimals(
+      rewardAmountInOneYear,
       this.getRewardToken().decimals,
     );
-
-    // 하루 총 생성 블록 갯수
-    const blocksInOneDay = div(ONE_DAY_SECONDS, this.context.blockTimeSecond);
-
-    // 하루 총 리워드 갯수
-    const rewardAmountInOneDay = mul(rewardAmountInOneBlock, blocksInOneDay);
-
-    // 하루 총 리워드 USD 가격
-    const rewardValueInOneDay = mul(
-      rewardAmountInOneDay,
+    // 일년 총 리워드 USD 가격
+    const rewardValueInOneYear = mul(
+      totalRewardAmountInOneYear,
       this.getRewardToken().priceUSD,
     );
-
-    // 일년 총 리워드 USD 가격
-    const rewardValueInOneYear = mul(ONE_YEAR_DAYS, rewardValueInOneDay);
 
     return {
       totalAllocPoint,
       rewardValueInOneYear,
     };
   }
-  getFarmInfos(sequence: number[]): Promise<
+
+  async getFarmInfos(sequence: number[]): Promise<
     {
       lpToken: string;
       allocPoint: BigNumber;
       lastRewardBlock: BigNumber;
-      accBSWPerShare: BigNumber;
+      accMdxPerShare: BigNumber;
+      accMultiLpPerShare: BigNumber;
+      totalAmount: BigNumber;
     }[]
   > {
     return this.context.getFarmInfos(sequence);
   }
+
   async registerFarm(
     farmInfo: { pid: number; lpToken: string },
     manager?: EntityManager,
@@ -128,8 +159,13 @@ export class BiSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
     );
     return true;
   }
+
   async refreshFarm(
-    farmInfo: { pid: number; allocPoint: BigNumber },
+    farmInfo: {
+      pid: number;
+      allocPoint: BigNumber;
+      totalAmount: BigNumber;
+    },
     farmState: {
       totalAllocPoint: BigNumber;
       rewardValueInOneYear: BigNumberJs;
@@ -153,17 +189,13 @@ export class BiSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
 
     // 총 유동 수량
     const liquidityAmount = divideDecimals(
-      await getSafeERC20BalanceOf(
-        this.context.provider,
-        this.context.multiCallAddress,
-        targetStakeToken.address,
-        this.getFarmDetail().address,
-      ),
+      farmInfo.totalAmount,
       targetStakeToken.decimals,
     );
 
     // 총 유동 가치(USD)
     const liquidityValue = mul(liquidityAmount, targetStakeToken.priceUSD);
+
     // 총 점유율
     const sharePointOfFarm = div(
       farmInfo.allocPoint,
@@ -195,13 +227,16 @@ export class BiSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
       manager,
     );
   }
+
   async process(data: {
     pid: number;
     farmInfo: {
       lpToken: string;
       allocPoint: BigNumber;
       lastRewardBlock: BigNumber;
-      accBSWPerShare: BigNumber;
+      accMdxPerShare: BigNumber;
+      accMultiLpPerShare: BigNumber;
+      totalAmount: BigNumber;
     };
     farmState: {
       totalAllocPoint: BigNumber;
@@ -222,7 +257,7 @@ export class BiSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
         pid,
       });
 
-      const { lpToken, allocPoint } = farmInfo;
+      const { lpToken, allocPoint, totalAmount } = farmInfo;
 
       if (isZero(allocPoint)) {
         if (!isUndefined(farm)) {
@@ -249,7 +284,7 @@ export class BiSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
 
       if (initialized) {
         await this.refreshFarm(
-          { pid, allocPoint },
+          { pid, allocPoint, totalAmount },
           farmState,
           queryRunner.manager,
         );

@@ -215,14 +215,14 @@ export class AutoFarmBinanceSmartChainFarmTask extends FarmTaskTemplate {
     try {
       const { pid, farmInfo, farmState } = data;
 
+      if (isNull(farmInfo)) return { success: true };
+
       const farm = await this.farmService.repository.findOneBy({
         protocol: this.context.protocol,
         name: this.getFarmDetail().name,
         address: this.getFarmDetail().name,
         pid,
       });
-
-      if (isNull(farmInfo)) return { success: true };
 
       const { want, allocPoint, strat } = farmInfo;
 
