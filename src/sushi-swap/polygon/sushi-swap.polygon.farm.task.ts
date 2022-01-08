@@ -6,7 +6,7 @@ import {
   FarmService,
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
-import { QuickSwapPolygonSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/quick-swap/polygon/quick-swap.polygon.scheduler.service';
+import { SushiSwapPolygonSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/sushi-swap/polygon/sushi-swap.polygon.scheduler.service';
 import { BigNumber } from 'ethers';
 import { EntityManager, getConnection, QueryRunner } from 'typeorm';
 import { TASK_ID } from '../../task-app.constant';
@@ -23,22 +23,28 @@ import {
 import {
   ONE_DAY_SECONDS,
   ONE_YEAR_DAYS,
+  ONE_YEAR_SECONDS,
   ZERO,
+  ZERO_ADDRESS,
 } from '@seongeun/aggregator-util/lib/constant';
 import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
 import { TASK_EXCEPTION_LEVEL } from '../../task-app/exception/task-exception.constant';
 import { getFarmAssetName } from '@seongeun/aggregator-util/lib/naming';
+import {
+  getSafeCheckCA,
+  getSafeERC20BalanceOf,
+} from '@seongeun/aggregator-util/lib/multicall/evm-contract';
 
 @Injectable()
-export class QuickSwapPolygonFarmTask extends FarmTaskTemplate {
+export class SushiSwapPolygonFarmTask extends FarmTaskTemplate {
   constructor(
     public readonly taskHandlerService: TaskHandlerService,
     public readonly farmService: FarmService,
     public readonly tokenService: TokenService,
-    public readonly context: QuickSwapPolygonSchedulerService,
+    public readonly context: SushiSwapPolygonSchedulerService,
   ) {
     super(
-      TASK_ID.QUICK_SWAP_POLYGON_FARM,
+      TASK_ID.SUSHI_SWAP_POLYGON_FARM,
       taskHandlerService,
       farmService,
       tokenService,
@@ -64,22 +70,23 @@ export class QuickSwapPolygonFarmTask extends FarmTaskTemplate {
 
   getFarmInfos(sequence: number[]): Promise<
     {
-      farmAddress: string;
-      stakingTokenAddress: string;
-      rewardTokenAAddress: string;
-      rewardTokenBAddress: string;
-      totalSupply: BigNumber;
-      rewardRateA: BigNumber;
-      rewardRateB: BigNumber;
-      periodFinish: BigNumber;
+      lpToken: string;
+      allocPoint: BigNumber;
+      rewarder: string;
     }[]
   > {
     return this.context.getFarmInfos(sequence);
   }
 
-  async getFarmState(): Promise<{ currentBlockNumber: number }> {
-    const currentBlockNumber = await this.context.getBlockNumber();
-    return { currentBlockNumber };
+  async getFarmState(): Promise<{
+    totalAllocPoint: BigNumber;
+    rewardPerSecond: BigNumber;
+  }> {
+    const [totalAllocPoint, rewardPerSecond] = await Promise.all([
+      this.context.getFarmTotalAllocPoint(),
+      this.context.getFarmRewardPerSecond(),
+    ]);
+    return { totalAllocPoint, rewardPerSecond };
   }
 
   async getRelatedTokens(tokens: {
@@ -107,114 +114,126 @@ export class QuickSwapPolygonFarmTask extends FarmTaskTemplate {
     return { stakeToken, rewardTokenA, rewardTokenB };
   }
 
-  async getRewardValueInOneYear(farmInfo: {
-    rewardTokenA;
-    rewardRateA;
-    rewardTokenB;
-    rewardRateB;
-  }): Promise<{ rewardValueInOneYear: BigNumberJs }> {
-    // 하루 총 생성 블록 갯수
-    const blocksInOneDay = div(ONE_DAY_SECONDS, this.context.blockTimeSecond);
-
-    // 하루 총 리워드 갯수
-    const rewardTokenAAmountInOneDay = mul(
-      divideDecimals(farmInfo.rewardRateA, farmInfo.rewardTokenA.decimals),
-      blocksInOneDay,
-    );
-
-    const rewardTokenBAmountInOneDay = mul(
-      divideDecimals(farmInfo.rewardRateB, farmInfo.rewardTokenB.decimals),
-      blocksInOneDay,
-    );
-
-    // 하루 총 리워드 USD 가격
-    const rewardTokenAValueInOneDay = mul(
-      rewardTokenAAmountInOneDay,
-      farmInfo.rewardTokenA.priceValue,
-    );
-
-    const rewardTokenBValueInOneDay = mul(
-      rewardTokenBAmountInOneDay,
-      farmInfo.rewardTokenB.priceValue,
-    );
-
-    // 일년 총 리워드 USD 가격
-    const rewardValueInOneYear = mul(
-      ONE_YEAR_DAYS,
-      add(rewardTokenAValueInOneDay, rewardTokenBValueInOneDay),
-    );
-
-    return {
-      rewardValueInOneYear,
-    };
-  }
-
   async registerFarm(
     farmInfo: {
       pid: number;
-      farmAddress: string;
-      stakeToken: Token;
-      rewardTokenA: Token;
-      rewardTokenB: Token;
-      rewardTokenAAddress: string;
-      rewardTokenBAddress: string;
+      lpToken: string;
+      rewarder: string;
+      rewarderRewardToken: Token;
     },
     manager?: EntityManager,
   ): Promise<boolean> {
-    // 스테이킹 토큰 및 리워드 토큰 미등록 or 비활성화 일 경우, 팜 등록 제외
-    if (
-      isUndefined(farmInfo.stakeToken) ||
-      isUndefined(farmInfo.rewardTokenA) ||
-      isUndefined(farmInfo.rewardTokenB)
-    ) {
+    const stakeToken: Token = await this.tokenService.repository.findOneBy(
+      {
+        address: farmInfo.lpToken,
+        status: true,
+        network: { chainId: this.context.chainId, status: true },
+      },
+      manager,
+    );
+
+    if (isUndefined(stakeToken)) {
       return false;
     }
+
+    if (isUndefined(farmInfo.rewarderRewardToken)) {
+      return false;
+    }
+
+    const rewardTokens = [this.getRewardToken(), farmInfo.rewarderRewardToken];
 
     await this.farmService.repository.createOneBy(
       {
         protocol: this.context.protocol,
         name: this.getFarmDetail().name,
-        address: farmInfo.farmAddress,
+        address: this.getFarmDetail().address,
         pid: farmInfo.pid,
-        assets: getFarmAssetName(
-          [farmInfo.stakeToken],
-          [farmInfo.rewardTokenA, farmInfo.rewardTokenB],
-        ),
-        stakeTokens: [farmInfo.stakeToken],
-        rewardTokens: [farmInfo.rewardTokenA, farmInfo.rewardTokenB],
-        data: JSON.stringify({
-          rewardA: farmInfo.rewardTokenAAddress,
-          rewardB: farmInfo.rewardTokenBAddress,
-        }),
+        assets: getFarmAssetName([stakeToken], rewardTokens),
+        stakeTokens: [stakeToken],
+        rewardTokens: rewardTokens,
+        data: JSON.stringify({ rewarder: farmInfo.rewarder }),
       },
       manager,
     );
-
     return true;
+  }
+
+  async getRewardValueInOneYear(farmInfo: {
+    rewarder: string;
+    rewarderRewardToken: Token;
+    rewardPerSecond: BigNumber;
+  }): Promise<{ rewardValueInOneYear: BigNumberJs }> {
+    // 기본 리워드
+    const baseRewardAmountInOneSecond = divideDecimals(
+      farmInfo.rewardPerSecond,
+      this.getRewardToken().decimals,
+    );
+
+    const baseRewardValueInOneSecond = mul(
+      baseRewardAmountInOneSecond,
+      this.getRewardToken().priceUSD,
+    );
+
+    const baseRewardValueInOneYear = mul(
+      baseRewardValueInOneSecond,
+      ONE_YEAR_SECONDS,
+    );
+
+    // 추가 리워드
+    let rewarderRewardValueInOneYear = ZERO;
+    if (
+      farmInfo.rewarder !== ZERO_ADDRESS &&
+      !isUndefined(farmInfo.rewarderRewardToken)
+    ) {
+      const rewarderRewardPerSecond =
+        await this.context.getFarmRewarderRewardPerSecond(farmInfo.rewarder);
+
+      const rewarderRewardAmountInOneSecond = divideDecimals(
+        rewarderRewardPerSecond,
+        farmInfo.rewarderRewardToken.decimals,
+      );
+
+      const rewarderRewardValueInOneSecond = mul(
+        rewarderRewardAmountInOneSecond,
+        farmInfo.rewarderRewardToken.priceUSD,
+      );
+
+      rewarderRewardValueInOneYear = mul(
+        rewarderRewardValueInOneSecond,
+        ONE_YEAR_SECONDS,
+      );
+    }
+
+    const rewardValueInOneYear = add(
+      baseRewardValueInOneYear,
+      rewarderRewardValueInOneYear,
+    );
+
+    return { rewardValueInOneYear };
   }
 
   async refreshFarm(
     farmInfo: {
       pid: number;
-      farmAddress: string;
-      stakeToken: Token;
-      rewardTokenA: Token;
-      rewardTokenB: Token;
-      totalSupply: BigNumber;
-      rewardRateA: BigNumber;
-      rewardRateB: BigNumber;
-      rewardTokenAAddress: string;
-      rewardTokenBAddress: string;
+      allocPoint: BigNumber;
+      rewarder: string;
+      rewarderRewardToken: Token;
     },
-    farmState: { currentBlockNumber: number },
+    farmState: { totalAllocPoint: BigNumber; rewardPerSecond: BigNumber },
     manager?: EntityManager,
   ): Promise<void> {
+    const { rewardValueInOneYear } = await this.getRewardValueInOneYear({
+      rewarder: farmInfo.rewarder,
+      rewarderRewardToken: farmInfo.rewarderRewardToken,
+      rewardPerSecond: farmState.rewardPerSecond,
+    });
+
     const { id, stakeTokens, status } =
       await this.farmService.repository.findOneBy(
         {
           protocol: this.context.protocol,
           name: this.getFarmDetail().name,
-          address: farmInfo.farmAddress,
+          address: this.getFarmDetail().address,
           pid: farmInfo.pid,
         },
         manager,
@@ -222,29 +241,34 @@ export class QuickSwapPolygonFarmTask extends FarmTaskTemplate {
 
     if (!status) return;
 
-    const rewardValueInOneYear = await this.getRewardValueInOneYear({
-      rewardTokenA: farmInfo.rewardTokenA,
-      rewardRateA: farmInfo.rewardRateA,
-      rewardTokenB: farmInfo.rewardTokenB,
-      rewardRateB: farmInfo.rewardRateB,
-    });
-
     const targetStakeToken = stakeTokens[0];
 
-    // 총 유동 수량
     const liquidityAmount = divideDecimals(
-      farmInfo.totalSupply,
+      await getSafeERC20BalanceOf(
+        this.context.provider,
+        this.context.multiCallAddress,
+        targetStakeToken.address,
+        this.getFarmDetail().address,
+      ),
       targetStakeToken.decimals,
     );
 
-    // 총 유동 가치(USD)
     const liquidityValue = mul(liquidityAmount, targetStakeToken.priceUSD);
 
-    // apr
+    const sharePointOfFarm = div(
+      farmInfo.allocPoint,
+      farmState.totalAllocPoint,
+    );
+
+    const allocatedRewardValueInOneYear = mul(
+      rewardValueInOneYear,
+      sharePointOfFarm,
+    );
+
     const farmApr =
-      isZero(rewardValueInOneYear) || isZero(liquidityValue)
+      isZero(allocatedRewardValueInOneYear) || isZero(liquidityValue)
         ? ZERO
-        : mul(div(rewardValueInOneYear, liquidityValue), 100);
+        : mul(div(allocatedRewardValueInOneYear, liquidityValue), 100);
 
     await this.farmService.repository.updateOneBy(
       {
@@ -254,10 +278,7 @@ export class QuickSwapPolygonFarmTask extends FarmTaskTemplate {
         liquidityAmount: liquidityAmount.toString(),
         liquidityValue: liquidityValue.toString(),
         apr: farmApr.toString(),
-        data: JSON.stringify({
-          rewardTokenAAddress: farmInfo.rewardTokenAAddress,
-          rewardTokenBAddress: farmInfo.rewardTokenBAddress,
-        }),
+        data: JSON.stringify({ rewarder: farmInfo.rewarder }),
         status: true,
       },
       manager,
@@ -267,16 +288,11 @@ export class QuickSwapPolygonFarmTask extends FarmTaskTemplate {
   async process(data: {
     pid: number;
     farmInfo: {
-      farmAddress: string;
-      stakingTokenAddress: string;
-      rewardTokenAAddress: string;
-      rewardTokenBAddress: string;
-      totalSupply: BigNumber;
-      rewardRateA: BigNumber;
-      rewardRateB: BigNumber;
-      periodFinish: BigNumber;
+      lpToken: string;
+      allocPoint: BigNumber;
+      rewarder: string;
     };
-    farmState: { currentBlockNumber: number };
+    farmState: { totalAllocPoint: BigNumber; rewardPerSecond: BigNumber };
   }): Promise<Record<string, any>> {
     let queryRunner: QueryRunner | null = null;
 
@@ -284,25 +300,17 @@ export class QuickSwapPolygonFarmTask extends FarmTaskTemplate {
       const { pid, farmInfo, farmState } = data;
 
       if (isNull(farmInfo)) return { success: true };
-      const {
-        farmAddress,
-        stakingTokenAddress,
-        rewardTokenAAddress,
-        rewardTokenBAddress,
-        totalSupply,
-        rewardRateA,
-        rewardRateB,
-        periodFinish,
-      } = farmInfo;
 
       const farm = await this.farmService.repository.findOneBy({
         protocol: this.context.protocol,
         name: this.getFarmDetail().name,
-        address: farmAddress,
+        address: this.getFarmDetail().address,
         pid,
       });
 
-      if (isGreaterThanOrEqual(farmState.currentBlockNumber, periodFinish)) {
+      const { allocPoint, lpToken, rewarder } = farmInfo;
+
+      if (isZero(allocPoint)) {
         if (!isUndefined(farm)) {
           await this.farmService.repository.updateOneBy(
             { id: farm.id },
@@ -312,30 +320,38 @@ export class QuickSwapPolygonFarmTask extends FarmTaskTemplate {
         return { success: true };
       }
 
+      const isValidRewarder = await getSafeCheckCA(
+        this.context.provider,
+        this.context.multiCallAddress,
+        rewarder,
+      );
+
+      let rewarderRewardTokenAddress;
+      let rewarderRewardToken;
+
+      if (isValidRewarder) {
+        rewarderRewardTokenAddress =
+          await this.context.getFarmRewarderRewardToken();
+
+        rewarderRewardToken = await this.tokenService.repository.findOneBy({
+          address: rewarderRewardTokenAddress,
+          status: true,
+          network: {
+            chainId: this.context.chainId,
+            status: true,
+          },
+        });
+      }
+
       queryRunner = await getConnection().createQueryRunner();
       await queryRunner.connect();
       await queryRunner.startTransaction();
 
       let initialized = true;
 
-      const { stakeToken, rewardTokenA, rewardTokenB } =
-        await this.getRelatedTokens({
-          stakingTokenAddress,
-          rewardTokenAAddress,
-          rewardTokenBAddress,
-        });
-
       if (isUndefined(farm)) {
         initialized = await this.registerFarm(
-          {
-            pid,
-            farmAddress,
-            stakeToken,
-            rewardTokenA,
-            rewardTokenB,
-            rewardTokenAAddress,
-            rewardTokenBAddress,
-          },
+          { pid, lpToken, rewarder, rewarderRewardToken },
           queryRunner.manager,
         );
       }
@@ -344,15 +360,9 @@ export class QuickSwapPolygonFarmTask extends FarmTaskTemplate {
         await this.refreshFarm(
           {
             pid,
-            farmAddress,
-            stakeToken,
-            rewardTokenA,
-            rewardTokenB,
-            totalSupply,
-            rewardRateA,
-            rewardRateB,
-            rewardTokenAAddress,
-            rewardTokenBAddress,
+            allocPoint,
+            rewarder,
+            rewarderRewardToken,
           },
           farmState,
           queryRunner.manager,

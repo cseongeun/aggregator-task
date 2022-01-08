@@ -14,6 +14,8 @@ import { KlaySwapTaskModule } from './klay-swap/klay-swap.task.module';
 import { MdexTaskModule } from './mdex/mdex.task.module';
 import { PancakeSwapTaskModule } from './pancake-swap/pancake-swap.task.module';
 import { QuickSwapModule } from './quick-swap/quick-swap.task.module';
+import { SushiSwapModule } from './sushi-swap/sushi-swap.module';
+import { TerraSwapModule } from './terra-swap/terra-swap.module';
 
 @Module({
   imports: [
@@ -40,6 +42,10 @@ import { QuickSwapModule } from './quick-swap/quick-swap.task.module';
     PancakeSwapTaskModule,
 
     QuickSwapModule,
+
+    SushiSwapModule,
+
+    TerraSwapModule,
   ],
   providers: [TaskAppService],
   exports: [TaskAppService],
