@@ -60,7 +60,7 @@ export class PancakeSwapBinanceSmartChainFarm_2_Task extends FarmTaskTemplate {
     return BigNumber.from(await this.context.getFarm2TotalLength());
   }
 
-  getFarmInfos(sequence: number[]): Promise<
+  async getFarmInfos(sequence: number[]): Promise<
     {
       id: string;
       reward: string;
@@ -83,7 +83,13 @@ export class PancakeSwapBinanceSmartChainFarm_2_Task extends FarmTaskTemplate {
     return this.context.getFarm2Infos(sequence.length);
   }
 
-  async getFarmState(): Promise<{ currentBlockNumber: number }> {
+  async getLocalFarmState(
+    farmInfo: Record<string, any>,
+  ): Promise<Record<string, any>> {
+    return;
+  }
+
+  async getGlobalFarmState(): Promise<{ currentBlockNumber: number }> {
     const currentBlockNumber = await this.context.getBlockNumber();
     return { currentBlockNumber };
   }
@@ -145,7 +151,7 @@ export class PancakeSwapBinanceSmartChainFarm_2_Task extends FarmTaskTemplate {
 
   async refreshFarm(
     farmInfo: { address: string; pid: number; reward: string },
-    farmState: { currentBlockNumber: number },
+    globalState: { currentBlockNumber: number },
     manager?: EntityManager,
   ): Promise<void> {
     const { id, stakeTokens, rewardTokens, status } =
@@ -232,12 +238,12 @@ export class PancakeSwapBinanceSmartChainFarm_2_Task extends FarmTaskTemplate {
         symbol: string;
       };
     };
-    farmState: { currentBlockNumber: number };
+    globalState: { currentBlockNumber: number };
   }): Promise<Record<string, any>> {
     let queryRunner: QueryRunner | null = null;
 
     try {
-      const { pid, farmInfo, farmState } = data;
+      const { pid, farmInfo, globalState } = data;
 
       if (isNull(farmInfo)) return { success: true };
 
@@ -250,7 +256,7 @@ export class PancakeSwapBinanceSmartChainFarm_2_Task extends FarmTaskTemplate {
         pid,
       });
 
-      if (isGreaterThanOrEqual(farmState.currentBlockNumber, endBlock)) {
+      if (isGreaterThanOrEqual(globalState.currentBlockNumber, endBlock)) {
         if (!isUndefined(farm)) {
           await this.farmService.repository.updateOneBy(
             { id: farm.id },
@@ -275,7 +281,7 @@ export class PancakeSwapBinanceSmartChainFarm_2_Task extends FarmTaskTemplate {
       if (initialized) {
         await this.refreshFarm(
           { address: id, pid, reward },
-          farmState,
+          globalState,
           queryRunner.manager,
         );
       }

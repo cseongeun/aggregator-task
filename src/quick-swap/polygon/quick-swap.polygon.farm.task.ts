@@ -58,11 +58,11 @@ export class QuickSwapPolygonFarmTask extends FarmTaskTemplate {
     };
   }
 
-  getNetworkPid(): Promise<BigNumber> {
+  async getNetworkPid(): Promise<BigNumber> {
     return this.context.getFarmTotalLength();
   }
 
-  getFarmInfos(sequence: number[]): Promise<
+  async getFarmInfos(sequence: number[]): Promise<
     {
       farmAddress: string;
       stakingTokenAddress: string;
@@ -77,37 +77,7 @@ export class QuickSwapPolygonFarmTask extends FarmTaskTemplate {
     return this.context.getFarmInfos(sequence);
   }
 
-  async getFarmState(): Promise<{ currentBlockNumber: number }> {
-    const currentBlockNumber = await this.context.getBlockNumber();
-    return { currentBlockNumber };
-  }
-
-  async getRelatedTokens(tokens: {
-    stakingTokenAddress: string;
-    rewardTokenAAddress: string;
-    rewardTokenBAddress: string;
-  }): Promise<{ stakeToken: Token; rewardTokenA: Token; rewardTokenB: Token }> {
-    const [stakeToken, rewardTokenA, rewardTokenB] = await Promise.all([
-      this.tokenService.repository.findOneBy({
-        address: tokens.stakingTokenAddress,
-        status: true,
-        network: { chainId: this.context.chainId, status: true },
-      }),
-      this.tokenService.repository.findOne({
-        address: tokens.rewardTokenAAddress,
-        status: true,
-        network: { chainId: this.context.chainId, status: true },
-      }),
-      this.tokenService.repository.findOneBy({
-        address: tokens.rewardTokenBAddress,
-        status: true,
-        network: { chainId: this.context.chainId, status: true },
-      }),
-    ]);
-    return { stakeToken, rewardTokenA, rewardTokenB };
-  }
-
-  async getRewardValueInOneYear(farmInfo: {
+  async getLocalFarmState(farmInfo: {
     rewardTokenA;
     rewardRateA;
     rewardTokenB;
@@ -147,6 +117,36 @@ export class QuickSwapPolygonFarmTask extends FarmTaskTemplate {
     return {
       rewardValueInOneYear,
     };
+  }
+
+  async getGlobalFarmState(): Promise<{ currentBlockNumber: number }> {
+    const currentBlockNumber = await this.context.getBlockNumber();
+    return { currentBlockNumber };
+  }
+
+  async getRelatedTokens(tokens: {
+    stakingTokenAddress: string;
+    rewardTokenAAddress: string;
+    rewardTokenBAddress: string;
+  }): Promise<{ stakeToken: Token; rewardTokenA: Token; rewardTokenB: Token }> {
+    const [stakeToken, rewardTokenA, rewardTokenB] = await Promise.all([
+      this.tokenService.repository.findOneBy({
+        address: tokens.stakingTokenAddress,
+        status: true,
+        network: { chainId: this.context.chainId, status: true },
+      }),
+      this.tokenService.repository.findOne({
+        address: tokens.rewardTokenAAddress,
+        status: true,
+        network: { chainId: this.context.chainId, status: true },
+      }),
+      this.tokenService.repository.findOneBy({
+        address: tokens.rewardTokenBAddress,
+        status: true,
+        network: { chainId: this.context.chainId, status: true },
+      }),
+    ]);
+    return { stakeToken, rewardTokenA, rewardTokenB };
   }
 
   async registerFarm(
@@ -206,7 +206,7 @@ export class QuickSwapPolygonFarmTask extends FarmTaskTemplate {
       rewardTokenAAddress: string;
       rewardTokenBAddress: string;
     },
-    farmState: { currentBlockNumber: number },
+    globalState: { currentBlockNumber: number },
     manager?: EntityManager,
   ): Promise<void> {
     const { id, stakeTokens, status } =
@@ -222,7 +222,7 @@ export class QuickSwapPolygonFarmTask extends FarmTaskTemplate {
 
     if (!status) return;
 
-    const rewardValueInOneYear = await this.getRewardValueInOneYear({
+    const rewardValueInOneYear = await this.getLocalFarmState({
       rewardTokenA: farmInfo.rewardTokenA,
       rewardRateA: farmInfo.rewardRateA,
       rewardTokenB: farmInfo.rewardTokenB,
@@ -276,12 +276,12 @@ export class QuickSwapPolygonFarmTask extends FarmTaskTemplate {
       rewardRateB: BigNumber;
       periodFinish: BigNumber;
     };
-    farmState: { currentBlockNumber: number };
+    globalState: { currentBlockNumber: number };
   }): Promise<Record<string, any>> {
     let queryRunner: QueryRunner | null = null;
 
     try {
-      const { pid, farmInfo, farmState } = data;
+      const { pid, farmInfo, globalState } = data;
 
       if (isNull(farmInfo)) return { success: true };
       const {
@@ -302,7 +302,7 @@ export class QuickSwapPolygonFarmTask extends FarmTaskTemplate {
         pid,
       });
 
-      if (isGreaterThanOrEqual(farmState.currentBlockNumber, periodFinish)) {
+      if (isGreaterThanOrEqual(globalState.currentBlockNumber, periodFinish)) {
         if (!isUndefined(farm)) {
           await this.farmService.repository.updateOneBy(
             { id: farm.id },
@@ -354,7 +354,7 @@ export class QuickSwapPolygonFarmTask extends FarmTaskTemplate {
             rewardTokenAAddress,
             rewardTokenBAddress,
           },
-          farmState,
+          globalState,
           queryRunner.manager,
         );
       }

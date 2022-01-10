@@ -58,11 +58,11 @@ export class QuickSwapPolygonFarm_2_Task extends FarmTaskTemplate {
     };
   }
 
-  getNetworkPid(): Promise<BigNumber> {
+  async getNetworkPid(): Promise<BigNumber> {
     return this.context.getFarm2TotalLength();
   }
 
-  getFarmInfos(sequence: number[]): Promise<
+  async getFarmInfos(sequence: number[]): Promise<
     {
       farmAddress: string;
       stakingTokenAddress: string;
@@ -75,32 +75,7 @@ export class QuickSwapPolygonFarm_2_Task extends FarmTaskTemplate {
     return this.context.getFarm2Infos(sequence);
   }
 
-  async getFarmState(): Promise<{ currentBlockNumber: number }> {
-    const currentBlockNumber = await this.context.getBlockNumber();
-    return { currentBlockNumber };
-  }
-
-  async getRelatedTokens(tokens: {
-    stakingTokenAddress: string;
-    rewardsTokenAddress: string;
-  }): Promise<{ stakeToken: Token; rewardToken: Token }> {
-    const [stakeToken, rewardToken] = await Promise.all([
-      this.tokenService.repository.findOneBy({
-        address: tokens.stakingTokenAddress,
-        status: true,
-        network: { chainId: this.context.chainId, status: true },
-      }),
-
-      this.tokenService.repository.findOneBy({
-        address: tokens.rewardsTokenAddress,
-        status: true,
-        network: { chainId: this.context.chainId, status: true },
-      }),
-    ]);
-    return { stakeToken, rewardToken };
-  }
-
-  async getRewardValueInOneYear(farmInfo: {
+  async getLocalFarmState(farmInfo: {
     rewardToken: Token;
     rewardRate: BigNumber;
   }): Promise<{ rewardValueInOneYear: BigNumberJs }> {
@@ -125,6 +100,31 @@ export class QuickSwapPolygonFarm_2_Task extends FarmTaskTemplate {
     return {
       rewardValueInOneYear,
     };
+  }
+
+  async getGlobalFarmState(): Promise<{ currentBlockNumber: number }> {
+    const currentBlockNumber = await this.context.getBlockNumber();
+    return { currentBlockNumber };
+  }
+
+  async getRelatedTokens(tokens: {
+    stakingTokenAddress: string;
+    rewardsTokenAddress: string;
+  }): Promise<{ stakeToken: Token; rewardToken: Token }> {
+    const [stakeToken, rewardToken] = await Promise.all([
+      this.tokenService.repository.findOneBy({
+        address: tokens.stakingTokenAddress,
+        status: true,
+        network: { chainId: this.context.chainId, status: true },
+      }),
+
+      this.tokenService.repository.findOneBy({
+        address: tokens.rewardsTokenAddress,
+        status: true,
+        network: { chainId: this.context.chainId, status: true },
+      }),
+    ]);
+    return { stakeToken, rewardToken };
   }
 
   async registerFarm(
@@ -165,7 +165,7 @@ export class QuickSwapPolygonFarm_2_Task extends FarmTaskTemplate {
       rewardRate: BigNumber;
       totalSupply: BigNumber;
     },
-    farmState: { currentBlockNumber: number },
+    globalState: { currentBlockNumber: number },
     manager?: EntityManager,
   ): Promise<void> {
     const { id, stakeTokens, status } =
@@ -181,7 +181,7 @@ export class QuickSwapPolygonFarm_2_Task extends FarmTaskTemplate {
 
     if (!status) return;
 
-    const rewardValueInOneYear = await this.getRewardValueInOneYear({
+    const { rewardValueInOneYear } = await this.getLocalFarmState({
       rewardToken: farmInfo.rewardToken,
       rewardRate: farmInfo.rewardRate,
     });
@@ -227,12 +227,12 @@ export class QuickSwapPolygonFarm_2_Task extends FarmTaskTemplate {
       rewardRate: BigNumber;
       periodFinish: BigNumber;
     };
-    farmState: { currentBlockNumber: number };
+    globalState: { currentBlockNumber: number };
   }): Promise<Record<string, any>> {
     let queryRunner: QueryRunner | null = null;
 
     try {
-      const { pid, farmInfo, farmState } = data;
+      const { pid, farmInfo, globalState } = data;
 
       if (isNull(farmInfo)) return { success: true };
 
@@ -252,7 +252,7 @@ export class QuickSwapPolygonFarm_2_Task extends FarmTaskTemplate {
         pid,
       });
 
-      if (isGreaterThanOrEqual(farmState.currentBlockNumber, periodFinish)) {
+      if (isGreaterThanOrEqual(globalState.currentBlockNumber, periodFinish)) {
         if (!isUndefined(farm)) {
           await this.farmService.repository.updateOneBy(
             { id: farm.id },
@@ -295,7 +295,7 @@ export class QuickSwapPolygonFarm_2_Task extends FarmTaskTemplate {
             rewardRate,
             totalSupply,
           },
-          farmState,
+          globalState,
           queryRunner.manager,
         );
       }

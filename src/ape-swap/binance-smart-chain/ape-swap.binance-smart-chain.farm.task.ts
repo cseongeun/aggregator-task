@@ -65,7 +65,11 @@ export class ApeSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
     return this.context.getFarmInfos(sequence);
   }
 
-  async getFarmState(): Promise<{
+  async getLocalFarmState(): Promise<Record<string, any>> {
+    return;
+  }
+
+  async getGlobalFarmState(): Promise<{
     totalAllocPoint: BigNumber;
     rewardValueInOneYear: BigNumberJs;
   }> {
@@ -134,7 +138,7 @@ export class ApeSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
 
   async refreshFarm(
     farmInfo: { pid: number; allocPoint: BigNumber },
-    farmState: {
+    globalState: {
       totalAllocPoint: BigNumber;
       rewardValueInOneYear: BigNumberJs;
     },
@@ -171,12 +175,12 @@ export class ApeSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
     // 총 점유율
     const sharePointOfFarm = div(
       farmInfo.allocPoint,
-      farmState.totalAllocPoint,
+      globalState.totalAllocPoint,
     );
 
     // 1년 할당 리워드 가치 (USD)
     const allocatedRewardValueInOneYear = mul(
-      farmState.rewardValueInOneYear,
+      globalState.rewardValueInOneYear,
       sharePointOfFarm,
     );
 
@@ -206,7 +210,7 @@ export class ApeSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
       lpToken: string;
       allocPoint: BigNumber;
     };
-    farmState: {
+    globalState: {
       totalAllocPoint: BigNumber;
       rewardValueInOneYear: BigNumberJs;
     };
@@ -214,7 +218,7 @@ export class ApeSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
     let queryRunner: QueryRunner | null = null;
 
     try {
-      const { pid, farmInfo, farmState } = data;
+      const { pid, farmInfo, globalState } = data;
 
       if (isNull(farmInfo)) return { success: true };
 
@@ -235,8 +239,8 @@ export class ApeSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
             },
             { status: false },
           );
-          return { success: true };
         }
+        return { success: true };
       }
 
       queryRunner = await getConnection().createQueryRunner();
@@ -256,7 +260,7 @@ export class ApeSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
       if (initialized) {
         await this.refreshFarm(
           { pid, allocPoint },
-          farmState,
+          globalState,
           queryRunner.manager,
         );
       }

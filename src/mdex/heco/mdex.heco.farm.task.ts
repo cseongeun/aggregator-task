@@ -54,11 +54,17 @@ export class MdexHecoFarmTask extends FarmTaskTemplate {
     };
   }
 
-  getNetworkPid(): Promise<BigNumber> {
+  async getNetworkPid(): Promise<BigNumber> {
     return this.context.getFarmTotalLength();
   }
 
-  async getFarmState(): Promise<{
+  async getLocalFarmState(
+    farmInfo: Record<string, any>,
+  ): Promise<Record<string, any>> {
+    return;
+  }
+
+  async getGlobalFarmState(): Promise<{
     totalAllocPoint: BigNumber;
     rewardValueInOneYear: BigNumberJs;
   }> {
@@ -166,7 +172,7 @@ export class MdexHecoFarmTask extends FarmTaskTemplate {
       allocPoint: BigNumber;
       totalAmount: BigNumber;
     },
-    farmState: {
+    globalState: {
       totalAllocPoint: BigNumber;
       rewardValueInOneYear: BigNumberJs;
     },
@@ -199,12 +205,12 @@ export class MdexHecoFarmTask extends FarmTaskTemplate {
     // 총 점유율
     const sharePointOfFarm = div(
       farmInfo.allocPoint,
-      farmState.totalAllocPoint,
+      globalState.totalAllocPoint,
     );
 
     // 1년 할당 리워드 가치 (USD)
     const allocatedRewardValueInOneYear = mul(
-      farmState.rewardValueInOneYear,
+      globalState.rewardValueInOneYear,
       sharePointOfFarm,
     );
 
@@ -238,7 +244,7 @@ export class MdexHecoFarmTask extends FarmTaskTemplate {
       accMultiLpPerShare: BigNumber;
       totalAmount: BigNumber;
     };
-    farmState: {
+    globalState: {
       totalAllocPoint: BigNumber;
       rewardValueInOneYear: BigNumberJs;
     };
@@ -246,7 +252,7 @@ export class MdexHecoFarmTask extends FarmTaskTemplate {
     let queryRunner: QueryRunner | null = null;
 
     try {
-      const { pid, farmInfo, farmState } = data;
+      const { pid, farmInfo, globalState } = data;
 
       if (isNull(farmInfo)) return { success: true };
 
@@ -285,7 +291,7 @@ export class MdexHecoFarmTask extends FarmTaskTemplate {
       if (initialized) {
         await this.refreshFarm(
           { pid, allocPoint, totalAmount },
-          farmState,
+          globalState,
           queryRunner.manager,
         );
       }

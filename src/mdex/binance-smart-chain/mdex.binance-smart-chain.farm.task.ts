@@ -54,11 +54,15 @@ export class MdexBinanceSmartChainFarmTask extends FarmTaskTemplate {
     };
   }
 
-  getNetworkPid(): Promise<BigNumber> {
+  async getNetworkPid(): Promise<BigNumber> {
     return this.context.getFarmTotalLength();
   }
 
-  async getFarmState(): Promise<{
+  async getLocalFarmState(): Promise<Record<string, any>> {
+    return;
+  }
+
+  async getGlobalFarmState(): Promise<{
     totalAllocPoint: BigNumber;
     rewardValueInOneYear: BigNumberJs;
   }> {
@@ -167,7 +171,7 @@ export class MdexBinanceSmartChainFarmTask extends FarmTaskTemplate {
       allocPoint: BigNumber;
       totalAmount: BigNumber;
     },
-    farmState: {
+    globalState: {
       totalAllocPoint: BigNumber;
       rewardValueInOneYear: BigNumberJs;
     },
@@ -200,12 +204,12 @@ export class MdexBinanceSmartChainFarmTask extends FarmTaskTemplate {
     // 총 점유율
     const sharePointOfFarm = div(
       farmInfo.allocPoint,
-      farmState.totalAllocPoint,
+      globalState.totalAllocPoint,
     );
 
     // 1년 할당 리워드 가치 (USD)
     const allocatedRewardValueInOneYear = mul(
-      farmState.rewardValueInOneYear,
+      globalState.rewardValueInOneYear,
       sharePointOfFarm,
     );
 
@@ -239,7 +243,7 @@ export class MdexBinanceSmartChainFarmTask extends FarmTaskTemplate {
       accMultiLpPerShare: BigNumber;
       totalAmount: BigNumber;
     };
-    farmState: {
+    globalState: {
       totalAllocPoint: BigNumber;
       rewardValueInOneYear: BigNumberJs;
     };
@@ -247,7 +251,7 @@ export class MdexBinanceSmartChainFarmTask extends FarmTaskTemplate {
     let queryRunner: QueryRunner | null = null;
 
     try {
-      const { pid, farmInfo, farmState } = data;
+      const { pid, farmInfo, globalState } = data;
 
       if (isNull(farmInfo)) return { success: true };
 
@@ -286,7 +290,7 @@ export class MdexBinanceSmartChainFarmTask extends FarmTaskTemplate {
       if (initialized) {
         await this.refreshFarm(
           { pid, allocPoint, totalAmount },
-          farmState,
+          globalState,
           queryRunner.manager,
         );
       }

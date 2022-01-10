@@ -68,22 +68,7 @@ export class ApeSwapPolygonFarmTask extends FarmTaskTemplate {
     return this.context.getFarmInfos(sequence);
   }
 
-  async getFarmState(): Promise<{
-    totalAllocPoint: BigNumber;
-    rewardPerSecond: BigNumber;
-  }> {
-    const [totalAllocPoint, rewardPerSecond] = await Promise.all([
-      this.context.getFarmTotalAllocPoint(),
-      this.context.getFarmRewardPerSecond(),
-    ]);
-
-    return {
-      totalAllocPoint,
-      rewardPerSecond,
-    };
-  }
-
-  async getFarmRewardValue(farmInfo: {
+  async getLocalFarmState(farmInfo: {
     rewarder: string;
     rewarderRewardToken: Token;
     rewardPerSecond: BigNumber;
@@ -136,6 +121,21 @@ export class ApeSwapPolygonFarmTask extends FarmTaskTemplate {
     return { rewardValueInOneYear };
   }
 
+  async getGlobalFarmState(): Promise<{
+    totalAllocPoint: BigNumber;
+    rewardPerSecond: BigNumber;
+  }> {
+    const [totalAllocPoint, rewardPerSecond] = await Promise.all([
+      this.context.getFarmTotalAllocPoint(),
+      this.context.getFarmRewardPerSecond(),
+    ]);
+
+    return {
+      totalAllocPoint,
+      rewardPerSecond,
+    };
+  }
+
   async registerFarm(
     farmInfo: {
       pid: number;
@@ -183,16 +183,16 @@ export class ApeSwapPolygonFarmTask extends FarmTaskTemplate {
       rewarder: string;
       rewarderRewardToken: Token;
     },
-    farmState: {
+    globalState: {
       totalAllocPoint: BigNumber;
       rewardPerSecond: BigNumber;
     },
     @TransactionManager() manager?: EntityManager,
   ): Promise<void> {
-    const { rewardValueInOneYear } = await this.getFarmRewardValue({
+    const { rewardValueInOneYear } = await this.getLocalFarmState({
       rewarder: farmInfo.rewarder,
       rewarderRewardToken: farmInfo.rewarderRewardToken,
-      rewardPerSecond: farmState.rewardPerSecond,
+      rewardPerSecond: globalState.rewardPerSecond,
     });
 
     const { id, stakeTokens, status } =
@@ -224,7 +224,7 @@ export class ApeSwapPolygonFarmTask extends FarmTaskTemplate {
 
     const sharePointOfFarm = div(
       farmInfo.allocPoint,
-      farmState.totalAllocPoint,
+      globalState.totalAllocPoint,
     );
 
     const allocatedRewardValueInOneYear = mul(
@@ -259,7 +259,7 @@ export class ApeSwapPolygonFarmTask extends FarmTaskTemplate {
       allocPoint: BigNumber;
       rewarder: string;
     };
-    farmState: {
+    globalState: {
       totalAllocPoint: BigNumber;
       rewardPerSecond: BigNumber;
     };
@@ -267,7 +267,7 @@ export class ApeSwapPolygonFarmTask extends FarmTaskTemplate {
     let queryRunner: QueryRunner | null = null;
 
     try {
-      const { pid, farmInfo, farmState } = data;
+      const { pid, farmInfo, globalState } = data;
 
       if (isNull(farmInfo)) return { success: true };
 
@@ -288,8 +288,8 @@ export class ApeSwapPolygonFarmTask extends FarmTaskTemplate {
             },
             { status: false },
           );
-          return { success: true };
         }
+        return { success: true };
       }
 
       const isValidRewarder = await getSafeCheckCA(
@@ -332,7 +332,7 @@ export class ApeSwapPolygonFarmTask extends FarmTaskTemplate {
       if (initialized) {
         await this.refreshFarm(
           { pid, allocPoint, rewarder: farmInfo.rewarder, rewarderRewardToken },
-          farmState,
+          globalState,
           queryRunner.manager,
         );
       }

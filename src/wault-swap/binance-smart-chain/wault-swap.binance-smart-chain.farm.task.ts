@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
   FarmService,
-  LendingService,
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
 import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
@@ -10,7 +9,7 @@ import { WaultSwapBinanceSmartChainSchedulerService } from '@seongeun/aggregator
 import { TASK_ID } from '../../task-app.constant';
 import { Token } from '@seongeun/aggregator-base/lib/entity';
 import { BigNumber } from 'ethers';
-import { EntityManager, getConnection, QueryRunner } from 'typeorm';
+import { EntityManager, QueryRunner } from 'typeorm';
 import BigNumberJs from 'bignumber.js';
 import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
 import { div, isZero, mul } from '@seongeun/aggregator-util/lib/bignumber';
@@ -53,11 +52,11 @@ export class WaultSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
     };
   }
 
-  getNetworkPid(): Promise<BigNumber> {
+  async getNetworkPid(): Promise<BigNumber> {
     return this.context.getFarmTotalLength();
   }
 
-  getFarmInfos(sequence: number[]): Promise<
+  async getFarmInfos(sequence: number[]): Promise<
     {
       lpToken: string;
       allocPoint: BigNumber;
@@ -66,6 +65,12 @@ export class WaultSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
     }[]
   > {
     return this.context.getFarmInfos(sequence);
+  }
+
+  async getLocalFarmState(
+    farmInfo: Record<string, any>,
+  ): Promise<Record<string, any>> {
+    return;
   }
 
   async getGlobalFarmState(): Promise<{
@@ -104,12 +109,6 @@ export class WaultSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
     };
   }
 
-  getSpecifiedFarmState(
-    farmInfo: Record<string, any>,
-  ): Promise<Record<string, any>> {
-    return;
-  }
-
   async registerFarm(
     farmInfo: { pid: number; lpToken: string },
     manager?: EntityManager,
@@ -143,7 +142,7 @@ export class WaultSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
 
   async refreshFarm(
     farmInfo: { pid: number; allocPoint: BigNumber },
-    globalFarmState: {
+    globalState: {
       totalAllocPoint: BigNumber;
       rewardValueInOneYear: BigNumberJs;
     },
@@ -180,12 +179,12 @@ export class WaultSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
     // 총 점유율
     const sharePointOfFarm = div(
       farmInfo.allocPoint,
-      globalFarmState.totalAllocPoint,
+      globalState.totalAllocPoint,
     );
 
     // 1년 할당 리워드 가치 (USD)
     const allocatedRewardValueInOneYear = mul(
-      globalFarmState.rewardValueInOneYear,
+      globalState.rewardValueInOneYear,
       sharePointOfFarm,
     );
 
@@ -217,7 +216,7 @@ export class WaultSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
       lastRewardBlock: BigNumber;
       accWexPerShare: BigNumber;
     };
-    globalFarmState: {
+    globalState: {
       totalAllocPoint: BigNumber;
       rewardValueInOneYear: BigNumberJs;
     };
@@ -225,7 +224,7 @@ export class WaultSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
     let queryRunner: QueryRunner | null = null;
 
     try {
-      const { pid, farmInfo, globalFarmState } = data;
+      const { pid, farmInfo, globalState } = data;
 
       if (isNull(farmInfo)) return { success: true };
 
@@ -264,7 +263,7 @@ export class WaultSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
       if (initialized) {
         await this.refreshFarm(
           { pid, allocPoint },
-          globalFarmState,
+          globalState,
           queryRunner.manager,
         );
       }

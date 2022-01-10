@@ -78,7 +78,7 @@ export class SushiSwapPolygonFarmTask extends FarmTaskTemplate {
     return this.context.getFarmInfos(sequence);
   }
 
-  async getFarmState(): Promise<{
+  async getGlobalFarmState(): Promise<{
     totalAllocPoint: BigNumber;
     rewardPerSecond: BigNumber;
   }> {
@@ -87,6 +87,60 @@ export class SushiSwapPolygonFarmTask extends FarmTaskTemplate {
       this.context.getFarmRewardPerSecond(),
     ]);
     return { totalAllocPoint, rewardPerSecond };
+  }
+
+  async getLocalFarmState(farmInfo: {
+    rewarder: string;
+    rewarderRewardToken: Token;
+    rewardPerSecond: BigNumber;
+  }): Promise<{ rewardValueInOneYear: BigNumberJs }> {
+    // 기본 리워드
+    const baseRewardAmountInOneSecond = divideDecimals(
+      farmInfo.rewardPerSecond,
+      this.getRewardToken().decimals,
+    );
+
+    const baseRewardValueInOneSecond = mul(
+      baseRewardAmountInOneSecond,
+      this.getRewardToken().priceUSD,
+    );
+
+    const baseRewardValueInOneYear = mul(
+      baseRewardValueInOneSecond,
+      ONE_YEAR_SECONDS,
+    );
+
+    // 추가 리워드
+    let rewarderRewardValueInOneYear = ZERO;
+    if (
+      farmInfo.rewarder !== ZERO_ADDRESS &&
+      !isUndefined(farmInfo.rewarderRewardToken)
+    ) {
+      const rewarderRewardPerSecond =
+        await this.context.getFarmRewarderRewardPerSecond(farmInfo.rewarder);
+
+      const rewarderRewardAmountInOneSecond = divideDecimals(
+        rewarderRewardPerSecond,
+        farmInfo.rewarderRewardToken.decimals,
+      );
+
+      const rewarderRewardValueInOneSecond = mul(
+        rewarderRewardAmountInOneSecond,
+        farmInfo.rewarderRewardToken.priceUSD,
+      );
+
+      rewarderRewardValueInOneYear = mul(
+        rewarderRewardValueInOneSecond,
+        ONE_YEAR_SECONDS,
+      );
+    }
+
+    const rewardValueInOneYear = add(
+      baseRewardValueInOneYear,
+      rewarderRewardValueInOneYear,
+    );
+
+    return { rewardValueInOneYear };
   }
 
   async getRelatedTokens(tokens: {
@@ -151,65 +205,11 @@ export class SushiSwapPolygonFarmTask extends FarmTaskTemplate {
         assets: getFarmAssetName([stakeToken], rewardTokens),
         stakeTokens: [stakeToken],
         rewardTokens: rewardTokens,
-        data: JSON.stringify({ rewarder: farmInfo.rewarder }),
+        data: { rewarder: farmInfo.rewarder },
       },
       manager,
     );
     return true;
-  }
-
-  async getRewardValueInOneYear(farmInfo: {
-    rewarder: string;
-    rewarderRewardToken: Token;
-    rewardPerSecond: BigNumber;
-  }): Promise<{ rewardValueInOneYear: BigNumberJs }> {
-    // 기본 리워드
-    const baseRewardAmountInOneSecond = divideDecimals(
-      farmInfo.rewardPerSecond,
-      this.getRewardToken().decimals,
-    );
-
-    const baseRewardValueInOneSecond = mul(
-      baseRewardAmountInOneSecond,
-      this.getRewardToken().priceUSD,
-    );
-
-    const baseRewardValueInOneYear = mul(
-      baseRewardValueInOneSecond,
-      ONE_YEAR_SECONDS,
-    );
-
-    // 추가 리워드
-    let rewarderRewardValueInOneYear = ZERO;
-    if (
-      farmInfo.rewarder !== ZERO_ADDRESS &&
-      !isUndefined(farmInfo.rewarderRewardToken)
-    ) {
-      const rewarderRewardPerSecond =
-        await this.context.getFarmRewarderRewardPerSecond(farmInfo.rewarder);
-
-      const rewarderRewardAmountInOneSecond = divideDecimals(
-        rewarderRewardPerSecond,
-        farmInfo.rewarderRewardToken.decimals,
-      );
-
-      const rewarderRewardValueInOneSecond = mul(
-        rewarderRewardAmountInOneSecond,
-        farmInfo.rewarderRewardToken.priceUSD,
-      );
-
-      rewarderRewardValueInOneYear = mul(
-        rewarderRewardValueInOneSecond,
-        ONE_YEAR_SECONDS,
-      );
-    }
-
-    const rewardValueInOneYear = add(
-      baseRewardValueInOneYear,
-      rewarderRewardValueInOneYear,
-    );
-
-    return { rewardValueInOneYear };
   }
 
   async refreshFarm(
@@ -219,13 +219,13 @@ export class SushiSwapPolygonFarmTask extends FarmTaskTemplate {
       rewarder: string;
       rewarderRewardToken: Token;
     },
-    farmState: { totalAllocPoint: BigNumber; rewardPerSecond: BigNumber },
+    globalState: { totalAllocPoint: BigNumber; rewardPerSecond: BigNumber },
     manager?: EntityManager,
   ): Promise<void> {
-    const { rewardValueInOneYear } = await this.getRewardValueInOneYear({
+    const { rewardValueInOneYear } = await this.getLocalFarmState({
       rewarder: farmInfo.rewarder,
       rewarderRewardToken: farmInfo.rewarderRewardToken,
-      rewardPerSecond: farmState.rewardPerSecond,
+      rewardPerSecond: globalState.rewardPerSecond,
     });
 
     const { id, stakeTokens, status } =
@@ -257,7 +257,7 @@ export class SushiSwapPolygonFarmTask extends FarmTaskTemplate {
 
     const sharePointOfFarm = div(
       farmInfo.allocPoint,
-      farmState.totalAllocPoint,
+      globalState.totalAllocPoint,
     );
 
     const allocatedRewardValueInOneYear = mul(
@@ -278,7 +278,7 @@ export class SushiSwapPolygonFarmTask extends FarmTaskTemplate {
         liquidityAmount: liquidityAmount.toString(),
         liquidityValue: liquidityValue.toString(),
         apr: farmApr.toString(),
-        data: JSON.stringify({ rewarder: farmInfo.rewarder }),
+        data: { rewarder: farmInfo.rewarder },
         status: true,
       },
       manager,
@@ -292,12 +292,12 @@ export class SushiSwapPolygonFarmTask extends FarmTaskTemplate {
       allocPoint: BigNumber;
       rewarder: string;
     };
-    farmState: { totalAllocPoint: BigNumber; rewardPerSecond: BigNumber };
+    globalState: { totalAllocPoint: BigNumber; rewardPerSecond: BigNumber };
   }): Promise<Record<string, any>> {
     let queryRunner: QueryRunner | null = null;
 
     try {
-      const { pid, farmInfo, farmState } = data;
+      const { pid, farmInfo, globalState } = data;
 
       if (isNull(farmInfo)) return { success: true };
 
@@ -364,7 +364,7 @@ export class SushiSwapPolygonFarmTask extends FarmTaskTemplate {
             rewarder,
             rewarderRewardToken,
           },
-          farmState,
+          globalState,
           queryRunner.manager,
         );
       }

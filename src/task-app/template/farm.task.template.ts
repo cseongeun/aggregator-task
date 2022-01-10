@@ -6,11 +6,7 @@ import {
   FarmService,
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
-import {
-  fillSequenceNumber,
-  toSplitWithChunkSize,
-  zip,
-} from '@seongeun/aggregator-util/lib/array';
+import { fillSequenceNumber, zip } from '@seongeun/aggregator-util/lib/array';
 import { TaskHandlerService } from '../handler/task-handler.service';
 import { TaskBase } from '../../task.base';
 import { get } from '@seongeun/aggregator-util/lib/object';
@@ -55,10 +51,18 @@ export abstract class FarmTaskTemplate extends TaskBase {
    * @param sequence pids
    */
   abstract getFarmInfos(sequence: number[]): Promise<Record<string, any>[]>;
+
   /**
-   * 팜의 상태
+   * 팜 글로벌 상태
    */
-  abstract getFarmState(): Promise<Record<string, any>>;
+  abstract getGlobalFarmState(): Promise<Record<string, any>>;
+
+  /**
+   * 팜 지역 상태
+   */
+  abstract getLocalFarmState(
+    farmInfo: Record<string, any>,
+  ): Promise<Record<string, any>>;
 
   /**
    * 팜 등록
@@ -87,7 +91,7 @@ export abstract class FarmTaskTemplate extends TaskBase {
   abstract process(data: {
     pid: number;
     farmInfo: Record<string, any>;
-    farmState: Record<string, any>;
+    globalState: Record<string, any>;
   }): Promise<Record<string, any> | null>;
 
   /**
@@ -103,9 +107,9 @@ export abstract class FarmTaskTemplate extends TaskBase {
     const log = this.loggingForm();
 
     try {
-      const [networkPid, farmState, chunkSize] = await Promise.all([
+      const [networkPid, globalState] = await Promise.all([
         this.getNetworkPid(),
-        this.getFarmState(),
+        this.getGlobalFarmState(),
         this.getChunkSize(),
       ]);
 
@@ -125,7 +129,11 @@ export abstract class FarmTaskTemplate extends TaskBase {
       log.total = farmInfos.length;
 
       for await (const [pid, farmInfo] of zip(totalPids, farmInfos)) {
-        const { success } = await this.process({ pid, farmInfo, farmState });
+        const { success } = await this.process({
+          pid,
+          farmInfo,
+          globalState,
+        });
 
         if (success) {
           log.success += 1;
