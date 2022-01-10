@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { BigNumber } from 'ethers';
 import {
   EntityManager,
   getConnection,
@@ -44,7 +45,10 @@ export class AavePolygonLendingTask extends TaskBase {
       supplyToken: Token;
       borrowToken: Token;
       address: string;
-      data?: any | any[];
+      reserve: BigNumber;
+      aTokenDecimals: string;
+      sTokenDecimals: string;
+      vTokenDecimals: string;
     },
     @TransactionManager() manager?: EntityManager,
   ): Promise<boolean> {
@@ -61,7 +65,12 @@ export class AavePolygonLendingTask extends TaskBase {
         supplyToken: marketInfo.supplyToken,
         borrowToken: marketInfo.borrowToken,
         address: marketInfo.address,
-        data: marketInfo.data ? JSON.stringify(marketInfo.data) : null,
+        data: {
+          reserve: marketInfo.reserve,
+          aTokenDecimals: marketInfo.aTokenDecimals,
+          sTokenDecimals: marketInfo.sTokenDecimals,
+          vTokenDecimals: marketInfo.vTokenDecimals,
+        },
       },
       manager,
     );
@@ -72,16 +81,19 @@ export class AavePolygonLendingTask extends TaskBase {
     marketInfo: {
       supplyToken: Token;
       borrowToken: Token;
-      availableLiquidity;
-      totalStableDebt;
-      totalVariableDebt;
-      liquidityRate;
-      variableBorrowRate;
-      stableBorrowRate;
-      variableBorrowIndex;
-      liquidationThreshold;
-      reserveFactor;
-      data?: any | any[];
+      availableLiquidity: BigNumber;
+      totalStableDebt: BigNumber;
+      totalVariableDebt: BigNumber;
+      liquidityRate: BigNumber;
+      variableBorrowRate: BigNumber;
+      stableBorrowRate: BigNumber;
+      variableBorrowIndex: BigNumber;
+      liquidationThreshold: BigNumber;
+      reserveFactor: BigNumber;
+      reserve: BigNumber;
+      aTokenDecimals: string;
+      sTokenDecimals: string;
+      vTokenDecimals: string;
     },
     @TransactionManager() manager?: EntityManager,
   ): Promise<void> {
@@ -150,7 +162,12 @@ export class AavePolygonLendingTask extends TaskBase {
         borrowApy: borrowApy.toString(),
         collateralFactor: collateralFactor.toString(),
         reserveFactor: reserveFactor.toString(),
-        data: marketInfo.data ? JSON.stringify(marketInfo.data) : null,
+        data: {
+          reserve: marketInfo.reserve,
+          aTokenDecimals: marketInfo.aTokenDecimals,
+          sTokenDecimals: marketInfo.sTokenDecimals,
+          vTokenDecimals: marketInfo.vTokenDecimals,
+        },
         status: true,
       },
       manager,
@@ -217,9 +234,8 @@ export class AavePolygonLendingTask extends TaskBase {
         }
       }
 
-      queryRunner = await getConnection().createQueryRunner();
-      await queryRunner.connect();
-      await queryRunner.startTransaction();
+      queryRunner =
+        await this.taskHandlerService.transaction.startTransaction();
 
       const [
         { decimals: aTokenDecimals },
@@ -238,12 +254,10 @@ export class AavePolygonLendingTask extends TaskBase {
             supplyToken: lendingMarketToken,
             borrowToken: lendingMarketToken,
             address: this.context.lending.address,
-            data: {
-              reserve,
-              aTokenDecimals: aTokenDecimals.toString(),
-              sTokenDecimals: sTokenDecimals.toString(),
-              vTokenDecimals: vTokenDecimals.toString(),
-            },
+            reserve,
+            aTokenDecimals: aTokenDecimals.toString(),
+            sTokenDecimals: sTokenDecimals.toString(),
+            vTokenDecimals: vTokenDecimals.toString(),
           },
           queryRunner.manager,
         );
@@ -263,18 +277,16 @@ export class AavePolygonLendingTask extends TaskBase {
             variableBorrowIndex,
             liquidationThreshold,
             reserveFactor,
-            data: {
-              reserve,
-              aTokenDecimals: aTokenDecimals.toString(),
-              sTokenDecimals: sTokenDecimals.toString(),
-              vTokenDecimals: vTokenDecimals.toString(),
-            },
+            reserve,
+            aTokenDecimals: aTokenDecimals.toString(),
+            sTokenDecimals: sTokenDecimals.toString(),
+            vTokenDecimals: vTokenDecimals.toString(),
           },
           queryRunner.manager,
         );
       }
 
-      await queryRunner.commitTransaction();
+      await this.taskHandlerService.transaction.commitTransaction(queryRunner);
       return { success: true };
     } catch (e) {
       if (!isNull(queryRunner) && queryRunner.isTransactionActive) {
@@ -291,9 +303,7 @@ export class AavePolygonLendingTask extends TaskBase {
       // 인터널 패닉 에러 시
       throw Error(e);
     } finally {
-      if (!isNull(queryRunner) && !queryRunner?.isReleased) {
-        await queryRunner.release();
-      }
+      await this.taskHandlerService.transaction.releaseTransaction(queryRunner);
     }
   }
 

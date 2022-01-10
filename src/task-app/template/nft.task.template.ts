@@ -6,7 +6,7 @@ import { BigNumber } from '@ethersproject/bignumber';
 import { get } from '@seongeun/aggregator-util/lib/object';
 import { NF_TOKEN_URI_TYPE } from '@seongeun/aggregator-base/lib/constant';
 import { checkURI } from '@seongeun/aggregator-util/lib/regExp';
-import { isNull } from '@seongeun/aggregator-util/lib/type';
+import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
 import { fillSequenceNumber } from '@seongeun/aggregator-util/lib/array';
 import {
   add,
@@ -114,9 +114,8 @@ export abstract class NFTTaskTemplate extends TaskBase {
         createBulkData.push(data);
       }
 
-      queryRunner = await getConnection().createQueryRunner();
-      await queryRunner.connect();
-      await queryRunner.startTransaction();
+      queryRunner =
+        await this.taskHandlerService.transaction.startTransaction();
 
       await this.nfTokenService.repository.createAllBy(
         createBulkData,
@@ -129,12 +128,12 @@ export abstract class NFTTaskTemplate extends TaskBase {
         queryRunner.manager,
       );
 
-      await queryRunner.commitTransaction();
+      await this.taskHandlerService.transaction.commitTransaction(queryRunner);
       return;
     } catch (e) {
-      if (!isNull(queryRunner)) {
-        await queryRunner.rollbackTransaction();
-      }
+      await this.taskHandlerService.transaction.rollbackTransaction(
+        queryRunner,
+      );
 
       throw Error(e);
     } finally {

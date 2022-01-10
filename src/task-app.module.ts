@@ -13,9 +13,11 @@ import { BiSwapTaskModule } from './bi-swap/bi-swap.task.module';
 import { KlaySwapTaskModule } from './klay-swap/klay-swap.task.module';
 import { MdexTaskModule } from './mdex/mdex.task.module';
 import { PancakeSwapTaskModule } from './pancake-swap/pancake-swap.task.module';
-import { QuickSwapModule } from './quick-swap/quick-swap.task.module';
-import { SushiSwapModule } from './sushi-swap/sushi-swap.module';
-import { TerraSwapModule } from './terra-swap/terra-swap.module';
+import { QuickSwapTaskModule } from './quick-swap/quick-swap.task.module';
+import { SushiSwapTaskModule } from './sushi-swap/sushi-swap.task.module';
+import { TerraSwapTaskModule } from './terra-swap/terra-swap.task.module';
+import { VenusTaskModule } from './venus/venus.task.module';
+import { WaultSwapTaskModule } from './wault-swap/wault-swap.task.module';
 
 @Module({
   imports: [
@@ -41,11 +43,15 @@ import { TerraSwapModule } from './terra-swap/terra-swap.module';
 
     PancakeSwapTaskModule,
 
-    QuickSwapModule,
+    QuickSwapTaskModule,
 
-    SushiSwapModule,
+    SushiSwapTaskModule,
 
-    TerraSwapModule,
+    TerraSwapTaskModule,
+
+    VenusTaskModule,
+
+    WaultSwapTaskModule,
   ],
   providers: [TaskAppService],
   exports: [TaskAppService],

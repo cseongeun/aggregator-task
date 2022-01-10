@@ -11,11 +11,13 @@ import { Exception } from '../exception/task-exception.dto';
 import { TaskLogger } from '../logger/task-logger';
 import { TaskManager } from '../manager/task-manager';
 import { TASK_MESSAGE } from '../message/task-message.constant';
+import { TaskTransaction } from '../transaction/task-transaction';
 
 @Injectable()
 export class TaskHandlerService {
   constructor(
     public readonly taskService: TaskService,
+    public readonly transaction: TaskTransaction,
     public readonly logger: TaskLogger,
     public readonly manager: TaskManager,
   ) {}

@@ -19,6 +19,7 @@ import { TaskBase } from '../../task.base';
 import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
 import { TASK_EXCEPTION_LEVEL } from '../../task-app/exception/task-exception.constant';
 import { TASK_ID } from '../../task-app.constant';
+import { BigNumber } from 'ethers';
 
 @Injectable()
 export class AaveAvalancheLendingTask extends TaskBase {
@@ -44,7 +45,10 @@ export class AaveAvalancheLendingTask extends TaskBase {
       supplyToken: Token;
       borrowToken: Token;
       address: string;
-      data?: any | any[];
+      reserve: BigNumber;
+      aTokenDecimals: string;
+      sTokenDecimals: string;
+      vTokenDecimals: string;
     },
     @TransactionManager() manager?: EntityManager,
   ): Promise<boolean> {
@@ -54,14 +58,18 @@ export class AaveAvalancheLendingTask extends TaskBase {
     ) {
       return false;
     }
-
     await this.lendingService.repository.createOneBy(
       {
         protocol: this.context.protocol,
         supplyToken: marketInfo.supplyToken,
         borrowToken: marketInfo.borrowToken,
         address: marketInfo.address,
-        data: marketInfo.data ? JSON.stringify(marketInfo.data) : null,
+        data: {
+          reserve: marketInfo.reserve,
+          aTokenDecimals: marketInfo.aTokenDecimals,
+          sTokenDecimals: marketInfo.sTokenDecimals,
+          vTokenDecimals: marketInfo.vTokenDecimals,
+        },
       },
       manager,
     );
@@ -72,16 +80,19 @@ export class AaveAvalancheLendingTask extends TaskBase {
     marketInfo: {
       supplyToken: Token;
       borrowToken: Token;
-      availableLiquidity;
-      totalStableDebt;
-      totalVariableDebt;
-      liquidityRate;
-      variableBorrowRate;
-      stableBorrowRate;
-      variableBorrowIndex;
-      liquidationThreshold;
-      reserveFactor;
-      data?: any | any[];
+      availableLiquidity: BigNumber;
+      totalStableDebt: BigNumber;
+      totalVariableDebt: BigNumber;
+      liquidityRate: BigNumber;
+      variableBorrowRate: BigNumber;
+      stableBorrowRate: BigNumber;
+      variableBorrowIndex: BigNumber;
+      liquidationThreshold: BigNumber;
+      reserveFactor: BigNumber;
+      reserve: BigNumber;
+      aTokenDecimals: string;
+      sTokenDecimals: string;
+      vTokenDecimals: string;
     },
     @TransactionManager() manager?: EntityManager,
   ): Promise<void> {
@@ -150,7 +161,12 @@ export class AaveAvalancheLendingTask extends TaskBase {
         borrowApy: borrowApy.toString(),
         collateralFactor: collateralFactor.toString(),
         reserveFactor: reserveFactor.toString(),
-        data: marketInfo.data ? JSON.stringify(marketInfo.data) : null,
+        data: {
+          reserve: marketInfo.reserve,
+          aTokenDecimals: marketInfo.aTokenDecimals,
+          sTokenDecimals: marketInfo.sTokenDecimals,
+          vTokenDecimals: marketInfo.vTokenDecimals,
+        },
         status: true,
       },
       manager,
@@ -217,9 +233,8 @@ export class AaveAvalancheLendingTask extends TaskBase {
         }
       }
 
-      queryRunner = await getConnection().createQueryRunner();
-      await queryRunner.connect();
-      await queryRunner.startTransaction();
+      queryRunner =
+        await this.taskHandlerService.transaction.startTransaction();
 
       const [
         { decimals: aTokenDecimals },
@@ -238,12 +253,10 @@ export class AaveAvalancheLendingTask extends TaskBase {
             supplyToken: lendingMarketToken,
             borrowToken: lendingMarketToken,
             address: this.context.lending.address,
-            data: {
-              reserve,
-              aTokenDecimals: aTokenDecimals.toString(),
-              sTokenDecimals: sTokenDecimals.toString(),
-              vTokenDecimals: vTokenDecimals.toString(),
-            },
+            reserve,
+            aTokenDecimals: aTokenDecimals.toString(),
+            sTokenDecimals: sTokenDecimals.toString(),
+            vTokenDecimals: vTokenDecimals.toString(),
           },
           queryRunner.manager,
         );
@@ -263,23 +276,21 @@ export class AaveAvalancheLendingTask extends TaskBase {
             variableBorrowIndex,
             liquidationThreshold,
             reserveFactor,
-            data: {
-              reserve,
-              aTokenDecimals: aTokenDecimals.toString(),
-              sTokenDecimals: sTokenDecimals.toString(),
-              vTokenDecimals: vTokenDecimals.toString(),
-            },
+            reserve,
+            aTokenDecimals: aTokenDecimals.toString(),
+            sTokenDecimals: sTokenDecimals.toString(),
+            vTokenDecimals: vTokenDecimals.toString(),
           },
           queryRunner.manager,
         );
       }
 
-      await queryRunner.commitTransaction();
+      await this.taskHandlerService.transaction.commitTransaction(queryRunner);
       return { success: true };
     } catch (e) {
-      if (!isNull(queryRunner)) {
-        await queryRunner.rollbackTransaction();
-      }
+      await this.taskHandlerService.transaction.rollbackTransaction(
+        queryRunner,
+      );
 
       const wrappedError = this.taskHandlerService.wrappedError(e);
 
@@ -291,9 +302,7 @@ export class AaveAvalancheLendingTask extends TaskBase {
       // 인터널 패닉 에러 시
       throw Error(e);
     } finally {
-      if (!isNull(queryRunner) && !queryRunner?.isReleased) {
-        await queryRunner.release();
-      }
+      await this.taskHandlerService.transaction.releaseTransaction(queryRunner);
     }
   }
 

@@ -11,7 +11,7 @@ import { AutoFarmBinanceSmartChainFarmTask } from './binance-smart-chain/auto-fa
     FarmModule,
     TaskHandlerModule,
   ],
-  providers: [AutoFarmBinanceSmartChainFarmTask],
-  exports: [AutoFarmBinanceSmartChainFarmTask],
+  providers: [],
+  exports: [],
 })
 export class AutoFarmTaskModule {}

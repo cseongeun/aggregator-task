@@ -79,14 +79,14 @@ export abstract class TaskBase implements OnModuleInit {
 
       const elapsedTime = `${getElapsedTime(startTime, 's')}s`;
 
-      this.taskHandlerService.handleSuccess(this.taskId, {
+      await this.taskHandlerService.handleSuccess(this.taskId, {
         result,
         elapsedTime,
       });
+
+      this.isTaskJobWorking = false;
     } catch (e) {
       this.taskHandlerService.handleError(this.taskId, e);
-    } finally {
-      this.isTaskJobWorking = false;
     }
   }
 
@@ -102,10 +102,10 @@ export abstract class TaskBase implements OnModuleInit {
       this.isTaskListenerJobWorking = true;
 
       this.task = await this.taskHandlerService.handleTaskListener(this.task);
+
+      this.isTaskListenerJobWorking = false;
     } catch (e) {
       await this.taskHandlerService.handleListenerError(this.taskId, e);
-    } finally {
-      this.isTaskListenerJobWorking = false;
     }
   }
 }

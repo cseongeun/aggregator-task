@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { WinstonLoggerService } from '@seongeun/aggregator-logger';
+import { COLOR } from '@seongeun/aggregator-util/lib/color';
 
 @Injectable()
 export class TaskLogger {
@@ -13,24 +14,27 @@ export class TaskLogger {
       elapsedTime?: string;
     },
   ): void {
-    this.winstonLoggerService.log(this._format('log', label, data));
+    const { saveMsg, consoleMsg } = this._formatLog('log', label, data);
+    this.winstonLoggerService.log(saveMsg, consoleMsg);
   }
 
   warn(
     label: string,
     data: { message?: string; errorMessage?: string; stack?: any },
   ): void {
-    this.winstonLoggerService.warn(this._format('warn', label, data));
+    const { saveMsg, consoleMsg } = this._formatLog('warn', label, data);
+    this.winstonLoggerService.warn(saveMsg, consoleMsg);
   }
 
   error(
     label: string,
     data: { message?: string; errorMessage?: string; stack?: any; extra?: any },
   ): void {
-    this.winstonLoggerService.error(this._format('error', label, data));
+    const { saveMsg, consoleMsg } = this._formatLog('error', label, data);
+    this.winstonLoggerService.error(saveMsg, consoleMsg);
   }
 
-  private _format(
+  private _formatLog(
     type = 'log',
     label: string,
     data: {
@@ -43,7 +47,6 @@ export class TaskLogger {
     },
   ) {
     const res: any = {
-      id: label,
       message: data.message,
     };
 
@@ -68,6 +71,15 @@ export class TaskLogger {
       }
     }
 
-    return JSON.stringify(res);
+    const [protocol, network, taskType] = label.split('_');
+
+    const saveMsg = JSON.stringify({ ...res, id: label });
+    const consoleMsg = `[${COLOR.FgMagenta}${protocol}${COLOR.Reset}(${
+      COLOR.FgBlue
+    }${network}${COLOR.Reset}) ${COLOR.FgCyan}${taskType}${
+      COLOR.Reset
+    }] - ${JSON.stringify({ ...res })}`;
+
+    return { saveMsg, consoleMsg };
   }
 }

@@ -19,7 +19,7 @@ import {
   sub,
 } from '@seongeun/aggregator-util/lib/bignumber';
 import { get } from '@seongeun/aggregator-util/lib/object';
-import { isUndefined } from '@seongeun/aggregator-util/lib/type';
+import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
 import {
   isZeroAddress,
   toCheckSumAddress,
@@ -508,9 +508,8 @@ export abstract class DexTaskTemplate extends TaskBase {
         pureSingleTokenAddresses,
       );
 
-      queryRunner = await getConnection().createQueryRunner();
-      await queryRunner.connect();
-      await queryRunner.startTransaction();
+      queryRunner =
+        await this.taskHandlerService.transaction.startTransaction();
 
       if (pureSingleTokenAddresses.length > 0)
         await this.createSingleTokens(
@@ -534,9 +533,17 @@ export abstract class DexTaskTemplate extends TaskBase {
         queryRunner.manager,
       );
 
-      await queryRunner.commitTransaction();
+      await this.taskHandlerService.transaction.commitTransaction(queryRunner);
       return {};
-    } catch (e) {}
+    } catch (e) {
+      await this.taskHandlerService.transaction.rollbackTransaction(
+        queryRunner,
+      );
+
+      throw Error(e);
+    } finally {
+      await this.taskHandlerService.transaction.releaseTransaction(queryRunner);
+    }
   }
 
   async run(): Promise<Record<string, any>> {
@@ -548,7 +555,6 @@ export abstract class DexTaskTemplate extends TaskBase {
         this.getLatestWorkedPid(),
         this.getChunkSize(),
       ]);
-      console.log('here');
 
       const startPid = workedPid;
       let endPid = networkPid.toNumber();

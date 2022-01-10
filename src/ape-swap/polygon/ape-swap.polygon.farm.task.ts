@@ -349,7 +349,6 @@ export class ApeSwapPolygonFarmTask extends FarmTaskTemplate {
       if (wrappedError.level === TASK_EXCEPTION_LEVEL.NORMAL) {
         return { success: false };
       }
-      console.log(e);
 
       // 인터널 패닉 에러 시
       throw Error(e);

@@ -38,7 +38,7 @@ export class QuickSwapPolygonFarm_2_Task extends FarmTaskTemplate {
     public readonly context: QuickSwapPolygonSchedulerService,
   ) {
     super(
-      TASK_ID.QUICK_SWAP_POLYGON_FARM,
+      TASK_ID.QUICK_SWAP_POLYGON_FARM_2,
       taskHandlerService,
       farmService,
       tokenService,
