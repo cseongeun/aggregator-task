@@ -317,6 +317,13 @@ export class TaskHandlerService {
       );
     }
 
+    // chainlink oracle type requires "feed" data
+    if (e.message?.match(TASK_EXCEPTION_CODE.ERR2000)) {
+      return new Exception(
+        TASK_EXCEPTION_CODE.ERR2000,
+        TASK_EXCEPTION_LEVEL.PANIC,
+      );
+    }
     // unknown exception
     return new Exception(
       TASK_EXCEPTION_CODE.ERR1001,

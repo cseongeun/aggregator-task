@@ -16,4 +16,7 @@ export enum TASK_EXCEPTION_CODE {
   ERR1009 = 'Too Many Requests', // url: 'https://rpc-mainnet.maticvigil.com/', RPC request rate limit
   ERR1010 = 'processing response error',
   ERR1011 = 'underlying network changed', // avalanche node<https://api.avax.network/ext/bc/C/rpc>
+
+  // Custom Error
+  ERR2000 = 'chainlink oracle type requires "feed" data', // token-price chain Link oracle
 }
