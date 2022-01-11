@@ -3,6 +3,7 @@ import {
   NETWORK_CHAIN_ID,
   NETWORK_CHAIN_TYPE,
   TOKEN_PRICE_ORACLE_TYPE,
+  TOKEN_TYPE,
 } from '@seongeun/aggregator-base/lib/constant';
 import { Token } from '@seongeun/aggregator-base/lib/entity';
 import {
@@ -12,7 +13,7 @@ import {
 import { getBatchChainLinkData } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
 import { get } from '@seongeun/aggregator-util/lib/object';
 import { isUndefined } from '@seongeun/aggregator-util/lib/type';
-import { IsNull, Not, QueryRunner } from 'typeorm';
+import { QueryRunner } from 'typeorm';
 import { TASK_EXCEPTION_CODE } from '../../exception/task-exception.constant';
 import { TaskHandlerService } from '../../handler/task-handler.service';
 import { Provider } from '@ethersproject/providers';
@@ -47,13 +48,10 @@ export abstract class TokenPriceChainLinkOracleTaskTemplate extends TokenPriceTa
    * @returns 토큰
    */
   async getTargetTotalTokens() {
-    return this.tokenService.repository.findAllBy({
-      network: this.network,
-      tokenPrice: {
-        oracleType: TOKEN_PRICE_ORACLE_TYPE.CHAIN_LINK,
-        oracleData: Not(IsNull()),
-      },
-      status: true,
+    return this.tokenService.search({
+      networkId: this.network.id,
+      type: [TOKEN_TYPE.NATIVE, TOKEN_TYPE.SINGLE],
+      oracleType: TOKEN_PRICE_ORACLE_TYPE.CHAIN_LINK,
     });
   }
 
@@ -63,9 +61,11 @@ export abstract class TokenPriceChainLinkOracleTaskTemplate extends TokenPriceTa
    * @returns 체인링크 가격 정보
    */
   async getChainLinkData(tokens: Token[]): Promise<any> {
-    const feedAddresses = tokens.map(({ tokenPrice: { oracleData } }) => {
-      const feed = get(oracleData, 'feed');
+    const feedAddresses = tokens.map((tokenPrice) => {
+      // const feedAddresses = tokens.map(({ tokenPrice: { oracleData } }) => {
+      const feed = get(tokenPrice, 'feed');
 
+      // console.log(tokenPrice);
       if (isUndefined(feed)) {
         throw Error(TASK_EXCEPTION_CODE.ERR2000);
       }
@@ -73,10 +73,12 @@ export abstract class TokenPriceChainLinkOracleTaskTemplate extends TokenPriceTa
       return feed;
     });
 
-    const chainLinkBatchCall = await getBatchChainLinkData(
-      this.networkService.provider(this.network.chainKey) as Provider,
-      this.networkService.multiCallAddress(this.network.chainKey),
-      feedAddresses,
+    const chainLinkBatchCall = await this.retryWrap(
+      getBatchChainLinkData(
+        this.networkService.provider(this.network.chainKey) as Provider,
+        this.networkService.multiCallAddress(this.network.chainKey),
+        feedAddresses,
+      ),
     );
 
     return chainLinkBatchCall;

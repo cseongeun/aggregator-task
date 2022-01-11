@@ -18,9 +18,10 @@ import {
   getToday,
 } from '@seongeun/aggregator-util/lib/time';
 import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
+import { fstat } from 'fs';
 import { TaskBase } from '../../../task.base';
 import { TaskHandlerService } from '../../handler/task-handler.service';
-
+import * as fs from 'fs';
 @Injectable()
 export abstract class TokenPriceTaskTemplate extends TaskBase {
   network: Network;
@@ -31,7 +32,6 @@ export abstract class TokenPriceTaskTemplate extends TaskBase {
     tokens: Token[];
     today: string;
     maxHistoricalRecordDays: number;
-    maxRetry: number;
   }): Promise<Record<string, any>>;
 
   constructor(
@@ -69,14 +69,6 @@ export abstract class TokenPriceTaskTemplate extends TaskBase {
     return parseInt(get(task.config, 'chunk'), 10) || 100;
   }
 
-  /**
-   * 노드 에러 시 재시도 횟수
-   * @returns 재시도 횟수
-   */
-  async getMaxRetryCall(): Promise<number> {
-    const task = await this.taskHandlerService.getTask(this.taskId);
-    return parseInt(get(task.config, 'maxRetry'), 10) || 2;
-  }
   /**
    * 최대 과거 기록일 가져오기
    * @returns 최대 과거 기록일
@@ -118,30 +110,29 @@ export abstract class TokenPriceTaskTemplate extends TaskBase {
   async run(): Promise<Record<string, any>> {
     const log = this.loggingForm();
     try {
-      const [totalTokens, chunkSize, maxHistoricalRecordDays, maxRetry, today] =
+      const [totalTokens, chunkSize, maxHistoricalRecordDays, today] =
         await Promise.all([
           this.getTargetTotalTokens(),
           this.getChunkSize(),
           this.getMaxHistoricalRecordDays(),
-          this.getMaxRetryCall(),
           getToday(),
         ]);
 
       log.total = totalTokens.length;
+      console.log(log.total);
+      fs.writeFileSync('ee.json', JSON.stringify(totalTokens));
+      // const chunkTokens: Token[][] = toSplitWithChunkSize(
+      //   totalTokens,
+      //   chunkSize,
+      // );
 
-      const chunkTokens: Token[][] = toSplitWithChunkSize(
-        totalTokens,
-        chunkSize,
-      );
-
-      for await (const tokens of chunkTokens) {
-        const { success } = await this.process({
-          tokens,
-          maxHistoricalRecordDays,
-          maxRetry,
-          today,
-        });
-      }
+      // for await (const tokens of chunkTokens) {
+      //   const { success } = await this.process({
+      //     tokens,
+      //     maxHistoricalRecordDays,
+      //     today,
+      //   });
+      // }
 
       return log;
     } catch (e) {

@@ -65,10 +65,9 @@ export abstract class TokenPriceMultiDexTaskTemplate extends TokenPriceTaskTempl
    * @returns 토큰
    */
   async getTargetTotalTokens() {
-    return this.tokenService.repository.findAllBy({
-      network: this.network,
+    return this.tokenService.search({
+      networkId: this.network.id,
       type: TOKEN_TYPE.MULTI,
-      status: true,
     });
   }
 
@@ -137,10 +136,9 @@ export abstract class TokenPriceMultiDexTaskTemplate extends TokenPriceTaskTempl
     tokens: Token[];
     today: string;
     maxHistoricalRecordDays: number;
-    maxRetry: number;
   }): Promise<Record<string, any>> {
     try {
-      const { tokens, today, maxHistoricalRecordDays, maxRetry } = data;
+      const { tokens, today, maxHistoricalRecordDays } = data;
 
       const tokenWithBestPairZip = this.getTokenWithBestPair(tokens);
 
@@ -152,7 +150,6 @@ export abstract class TokenPriceMultiDexTaskTemplate extends TokenPriceTaskTempl
           this.networkService.multiCallAddress(this.network.chainKey),
           flat(infoDataEncode),
         ),
-        maxRetry,
       );
 
       const infoDataBatchCallMap = toSplitWithChunkSize(infoDataBatchCall, 2);
