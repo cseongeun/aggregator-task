@@ -17,7 +17,7 @@ import { SushiSwapTaskModule } from './sushi-swap/sushi-swap.task.module';
 import { TerraSwapTaskModule } from './terra-swap/terra-swap.task.module';
 import { VenusTaskModule } from './venus/venus.task.module';
 import { WaultSwapTaskModule } from './wault-swap/wault-swap.task.module';
-import { TokenPriceTaskModule } from './token-price/token-price.module';
+import { TokenPriceTaskModule } from './token-price/token-price.task.module';
 
 @Module({
   imports: [
