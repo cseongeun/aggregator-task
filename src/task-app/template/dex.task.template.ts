@@ -1,12 +1,6 @@
 import { BigNumber } from '@ethersproject/bignumber';
 import { Injectable } from '@nestjs/common';
-import {
-  EntityManager,
-  getConnection,
-  In,
-  QueryRunner,
-  TransactionManager,
-} from 'typeorm';
+import { EntityManager, In, QueryRunner, TransactionManager } from 'typeorm';
 import { TokenService } from '@seongeun/aggregator-base/lib/service';
 import {
   fillSequenceNumber,
@@ -19,7 +13,7 @@ import {
   sub,
 } from '@seongeun/aggregator-util/lib/bignumber';
 import { get } from '@seongeun/aggregator-util/lib/object';
-import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
+import { isUndefined } from '@seongeun/aggregator-util/lib/type';
 import {
   isZeroAddress,
   toCheckSumAddress,

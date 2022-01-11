@@ -5,6 +5,7 @@ export enum TASK_MESSAGE {
 
   INITIAL_START = 'task start initial',
   RESTART_MANUALLY = 'task restart manually',
+  PANIC_STOP = 'task stop occur by panic',
   STOP_MANUALLY = 'task stop manually',
   CHANGE_CRON_MANUALLY = 'task changed cron manually',
 

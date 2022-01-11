@@ -4,7 +4,7 @@ import {
   NETWORK_CHAIN_TYPE,
   TOKEN_PRICE_ORACLE_TYPE,
 } from '@seongeun/aggregator-base/lib/constant';
-import { Network, Token } from '@seongeun/aggregator-base/lib/entity';
+import { Token } from '@seongeun/aggregator-base/lib/entity';
 import {
   NetworkService,
   TokenService,
@@ -24,8 +24,6 @@ import { TokenPriceTaskTemplate } from './token-price.task.template';
 
 @Injectable()
 export abstract class TokenPriceChainLinkOracleTaskTemplate extends TokenPriceTaskTemplate {
-  network: Network;
-
   constructor(
     public readonly id: string,
     public readonly chainType: NETWORK_CHAIN_TYPE,
@@ -55,6 +53,7 @@ export abstract class TokenPriceChainLinkOracleTaskTemplate extends TokenPriceTa
         oracleType: TOKEN_PRICE_ORACLE_TYPE.CHAIN_LINK,
         oracleData: Not(IsNull()),
       },
+      status: true,
     });
   }
 
@@ -68,7 +67,7 @@ export abstract class TokenPriceChainLinkOracleTaskTemplate extends TokenPriceTa
       const feed = get(oracleData, 'feed');
 
       if (isUndefined(feed)) {
-        throw new Error(TASK_EXCEPTION_CODE.ERR2000);
+        throw Error(TASK_EXCEPTION_CODE.ERR2000);
       }
 
       return feed;

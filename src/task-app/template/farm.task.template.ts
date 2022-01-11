@@ -145,7 +145,7 @@ export abstract class FarmTaskTemplate extends TaskBase {
 
       return log;
     } catch (e) {
-      throw new Error(e);
+      throw Error(e);
     }
   }
 }

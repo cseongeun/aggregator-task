@@ -177,7 +177,7 @@ export abstract class NFTTaskTemplate extends TaskBase {
 
       return log;
     } catch (e) {
-      throw new Error(e);
+      throw Error(e);
     }
   }
 }

@@ -27,6 +27,12 @@ export abstract class TokenPriceTaskTemplate extends TaskBase {
 
   // 관련 토큰 가져오기
   abstract getTargetTotalTokens(): Promise<Token[]>;
+  abstract process(data: {
+    tokens: Token[];
+    today: string;
+    maxHistoricalRecordDays: number;
+    maxRetry: number;
+  }): Promise<Record<string, any>>;
 
   constructor(
     public readonly id: string,
@@ -63,6 +69,14 @@ export abstract class TokenPriceTaskTemplate extends TaskBase {
     return parseInt(get(task.config, 'chunk'), 10) || 100;
   }
 
+  /**
+   * 노드 에러 시 재시도 횟수
+   * @returns 재시도 횟수
+   */
+  async getMaxRetryCall(): Promise<number> {
+    const task = await this.taskHandlerService.getTask(this.taskId);
+    return parseInt(get(task.config, 'maxRetry'), 10) || 2;
+  }
   /**
    * 최대 과거 기록일 가져오기
    * @returns 최대 과거 기록일
@@ -104,11 +118,12 @@ export abstract class TokenPriceTaskTemplate extends TaskBase {
   async run(): Promise<Record<string, any>> {
     const log = this.loggingForm();
     try {
-      const [totalTokens, chunkSize, maxHistoricalRecordDays, today] =
+      const [totalTokens, chunkSize, maxHistoricalRecordDays, maxRetry, today] =
         await Promise.all([
           this.getTargetTotalTokens(),
           this.getChunkSize(),
           this.getMaxHistoricalRecordDays(),
+          this.getMaxRetryCall(),
           getToday(),
         ]);
 
@@ -123,6 +138,7 @@ export abstract class TokenPriceTaskTemplate extends TaskBase {
         const { success } = await this.process({
           tokens,
           maxHistoricalRecordDays,
+          maxRetry,
           today,
         });
       }

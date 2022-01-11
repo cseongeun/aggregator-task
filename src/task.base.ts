@@ -4,6 +4,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { getElapsedTime } from '@seongeun/aggregator-util/lib/time';
 import { TaskHandlerService } from './task-app/handler/task-handler.service';
 import { Task } from '@seongeun/aggregator-base/lib/entity';
+import { TASK_EXCEPTION_LEVEL } from './task-app/exception/task-exception.constant';
 
 @Injectable()
 export abstract class TaskBase implements OnModuleInit {
@@ -17,7 +18,8 @@ export abstract class TaskBase implements OnModuleInit {
   // 작업 초기 반복
   private initTaskJobCron = CronExpression.EVERY_5_SECONDS;
   // 작업 리스너 반복
-  private initTaskListenerJobCron = CronExpression.EVERY_MINUTE;
+  private initTaskListenerJobCron = CronExpression.EVERY_5_SECONDS;
+  // private initTaskListenerJobCron = CronExpression.EVERY_MINUTE;
 
   // 현재 작업 상태
   protected task: Task;
@@ -107,5 +109,31 @@ export abstract class TaskBase implements OnModuleInit {
     } catch (e) {
       await this.taskHandlerService.handleListenerError(this.taskId, e);
     }
+  }
+
+  /**
+   * 노드 데이터 요청 재시도
+   * @param promise 노드 데이터요청
+   * @param maxRetry 최대 재시도 횟수
+   * @param retry 현재 시도 횟수
+   * @returns 결과
+   */
+  async retryWrap(promise: any, maxRetry = 2, retry = 0) {
+    return promise.then(
+      (data) => {
+        return data;
+      },
+      (err) => {
+        const wrappedError = this.taskHandlerService.wrappedError(err);
+
+        if (wrappedError.level === TASK_EXCEPTION_LEVEL.NORMAL) {
+          if (retry < maxRetry) {
+            this.retryWrap(promise, maxRetry, (retry += 1));
+          }
+        }
+
+        throw Error(err);
+      },
+    );
   }
 }

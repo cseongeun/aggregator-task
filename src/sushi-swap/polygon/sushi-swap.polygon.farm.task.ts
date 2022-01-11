@@ -372,9 +372,9 @@ export class SushiSwapPolygonFarmTask extends FarmTaskTemplate {
       await queryRunner.commitTransaction();
       return { success: true };
     } catch (e) {
-      if (!isNull(queryRunner)) {
-        await queryRunner.rollbackTransaction();
-      }
+      await this.taskHandlerService.transaction.rollbackTransaction(
+        queryRunner,
+      );
       const wrappedError = this.taskHandlerService.wrappedError(e);
 
       // 인터널 노말 에러 시
@@ -385,9 +385,7 @@ export class SushiSwapPolygonFarmTask extends FarmTaskTemplate {
       // 인터널 패닉 에러 시
       throw Error(e);
     } finally {
-      if (!isNull(queryRunner) && !queryRunner?.isReleased) {
-        await queryRunner.release();
-      }
+      await this.taskHandlerService.transaction.releaseTransaction(queryRunner);
     }
   }
 }

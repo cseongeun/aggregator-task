@@ -129,7 +129,7 @@ export class TaskHandlerService {
       if (nowStatus) {
         await this._handleRestart(taskId);
       } else {
-        await this._handleStop(taskId);
+        await this._handleStop(taskId, TASK_MESSAGE.PANIC_STOP);
       }
     }
 
@@ -171,11 +171,14 @@ export class TaskHandlerService {
    * 작업 수동 중단 시 핸들링
    * @param taskId 작업 아이디
    */
-  private async _handleStop(taskId: string): Promise<void> {
+  private async _handleStop(
+    taskId: string,
+    message?: TASK_MESSAGE,
+  ): Promise<void> {
     await this.manager.stopTask(taskId);
 
     await this.logger.log(taskId, {
-      message: TASK_MESSAGE.STOP_MANUALLY,
+      message: message ? message : TASK_MESSAGE.STOP_MANUALLY,
     });
   }
 
