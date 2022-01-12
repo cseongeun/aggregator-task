@@ -8,6 +8,7 @@ import {
   NetworkService,
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
+import { getToday } from '@seongeun/aggregator-util/lib/time';
 import { TASK_ID } from '../../task-app.constant';
 import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
 import { TokenPriceBaseService } from '../../task-app/template/token-price/service/service.base';
@@ -17,7 +18,7 @@ import { TokenPriceSingleDexService } from '../../task-app/template/token-price/
 import { TokenPriceTaskTemplate } from '../../task-app/template/token-price/token-price.task.template';
 
 @Injectable()
-export class TokenPriceBinanceSmartChainAllTask extends TokenPriceTaskTemplate {
+export class TokenPriceXdaiAllTask extends TokenPriceTaskTemplate {
   network: Network;
 
   constructor(
@@ -31,9 +32,9 @@ export class TokenPriceBinanceSmartChainAllTask extends TokenPriceTaskTemplate {
     public readonly tokenPriceSingleDexService: TokenPriceSingleDexService,
   ) {
     super(
-      TASK_ID.TOKEN_PRICE_BINANCE_SMART_CHAIN_ALL,
+      TASK_ID.TOKEN_PRICE_XDAI_ALL,
       NETWORK_CHAIN_TYPE.EVM,
-      NETWORK_CHAIN_ID.BINANCE_SMART_CHAIN,
+      NETWORK_CHAIN_ID.XDAI,
       taskHandlerService,
       tokenService,
       networkService,

@@ -17,7 +17,7 @@ import { TokenPriceSingleDexService } from '../../task-app/template/token-price/
 import { TokenPriceTaskTemplate } from '../../task-app/template/token-price/token-price.task.template';
 
 @Injectable()
-export class TokenPriceBinanceSmartChainAllTask extends TokenPriceTaskTemplate {
+export class TokenPriceHecoAllTask extends TokenPriceTaskTemplate {
   network: Network;
 
   constructor(
@@ -31,9 +31,9 @@ export class TokenPriceBinanceSmartChainAllTask extends TokenPriceTaskTemplate {
     public readonly tokenPriceSingleDexService: TokenPriceSingleDexService,
   ) {
     super(
-      TASK_ID.TOKEN_PRICE_BINANCE_SMART_CHAIN_ALL,
+      TASK_ID.TOKEN_PRICE_HECO_ALL,
       NETWORK_CHAIN_TYPE.EVM,
-      NETWORK_CHAIN_ID.BINANCE_SMART_CHAIN,
+      NETWORK_CHAIN_ID.HECO,
       taskHandlerService,
       tokenService,
       networkService,

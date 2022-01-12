@@ -69,9 +69,9 @@ export abstract class TokenPriceTaskTemplate extends TaskBase {
   }[];
 
   /**
-   * 
-   * @param data {}
-   * @returns 
+   * 진행
+   * @param data { service: 토큰 가격 추적 서비스, chunkSize: 청크 사이즈, maxHistoricalRecordDays: 최대 가격 기록일, today: 오늘 날짜 }
+   * @returns 서비스 단위 로그
    */
   async process(data: {
     targetService: TokenPriceBaseService;
@@ -91,6 +91,10 @@ export abstract class TokenPriceTaskTemplate extends TaskBase {
     return log;
   }
 
+  /**
+   * 메인
+   * @returns 로그
+   */
   async run(): Promise<Record<string, any>> {
     const log = this.loggingForm();
 

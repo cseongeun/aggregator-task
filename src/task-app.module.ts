@@ -18,6 +18,7 @@ import { TerraSwapTaskModule } from './terra-swap/terra-swap.task.module';
 import { VenusTaskModule } from './venus/venus.task.module';
 import { WaultSwapTaskModule } from './wault-swap/wault-swap.task.module';
 import { TokenPriceTaskModule } from './token-price/token-price.task.module';
+import { TokenSupplyTaskModule } from './token-supply/token-supply.task.module';
 
 @Module({
   imports: [
@@ -52,6 +53,8 @@ import { TokenPriceTaskModule } from './token-price/token-price.task.module';
     WaultSwapTaskModule,
 
     TokenPriceTaskModule,
+
+    TokenSupplyTaskModule,
   ],
   providers: [TaskAppService],
   exports: [TaskAppService],
