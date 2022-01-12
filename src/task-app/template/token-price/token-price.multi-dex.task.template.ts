@@ -37,7 +37,7 @@ import {
 import { QueryRunner } from 'typeorm';
 import { TASK_EXCEPTION_LEVEL } from '../../exception/task-exception.constant';
 
-interface ExtendTokenBestPair extends Token {
+interface ITokenExtendBestPair extends Token {
   bestPair: Token;
 }
 @Injectable()
@@ -75,10 +75,11 @@ export abstract class TokenPriceMultiDexTaskTemplate extends TokenPriceTaskTempl
    * 인증받은 페어 고르기(체인링크를 통해 가격정보를 받아오는 토큰)
    * @param token verified oracle pair
    */
-  getTokenWithBestPair(tokens: Token[]): ExtendTokenBestPair[] {
-    const tokenZip = [];
+  getTokenWithBestPair(tokens: Token[]): ITokenExtendBestPair[] {
     try {
-      tokens.map((token: ExtendTokenBestPair) => {
+      const tokenZip: ITokenExtendBestPair[] = [];
+
+      tokens.map((token: ITokenExtendBestPair) => {
         const { pair0, pair1 } = token;
 
         if (!isNull(pair0) || !isUndefined(pair0))
@@ -114,15 +115,15 @@ export abstract class TokenPriceMultiDexTaskTemplate extends TokenPriceTaskTempl
           }
         }
       });
+
+      return tokenZip;
     } catch (e) {
       throw Error(e);
     }
-
-    return tokenZip;
   }
 
-  getInfoDataEncoding(tokenWithBestPair: ExtendTokenBestPair[]) {
-    return tokenWithBestPair.map((token: ExtendTokenBestPair) => {
+  getInfoDataEncoding(tokenWithBestPair: ITokenExtendBestPair[]): any[][] {
+    return tokenWithBestPair.map((token: ITokenExtendBestPair) => {
       const { address, bestPair } = token;
 
       return [
@@ -247,7 +248,7 @@ export abstract class TokenPriceMultiDexTaskTemplate extends TokenPriceTaskTempl
 
           // 인터널 노말 에러 시
           if (wrappedError.level === TASK_EXCEPTION_LEVEL.NORMAL) {
-            return { success: false };
+            continue;
           }
 
           throw Error(e);
@@ -260,7 +261,6 @@ export abstract class TokenPriceMultiDexTaskTemplate extends TokenPriceTaskTempl
 
       return { success: true };
     } catch (e) {
-      console.log(e);
       throw Error(e);
     }
   }

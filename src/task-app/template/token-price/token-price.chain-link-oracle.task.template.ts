@@ -61,9 +61,8 @@ export abstract class TokenPriceChainLinkOracleTaskTemplate extends TokenPriceTa
    * @returns 체인링크 가격 정보
    */
   async getChainLinkData(tokens: Token[]): Promise<any> {
-    const feedAddresses = tokens.map((tokenPrice) => {
-      // const feedAddresses = tokens.map(({ tokenPrice: { oracleData } }) => {
-      const feed = get(tokenPrice, 'feed');
+    const feedAddresses = tokens.map(({ tokenPrice: { oracleData } }) => {
+      const feed = get(oracleData, 'feed');
 
       // console.log(tokenPrice);
       if (isUndefined(feed)) {

@@ -18,10 +18,10 @@ import {
   getToday,
 } from '@seongeun/aggregator-util/lib/time';
 import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
-import { fstat } from 'fs';
 import { TaskBase } from '../../../task.base';
 import { TaskHandlerService } from '../../handler/task-handler.service';
-import * as fs from 'fs';
+import { TASK_EXCEPTION_LEVEL } from '../../exception/task-exception.constant';
+
 @Injectable()
 export abstract class TokenPriceTaskTemplate extends TaskBase {
   network: Network;
@@ -119,20 +119,29 @@ export abstract class TokenPriceTaskTemplate extends TaskBase {
         ]);
 
       log.total = totalTokens.length;
-      console.log(log.total);
-      fs.writeFileSync('ee.json', JSON.stringify(totalTokens));
-      // const chunkTokens: Token[][] = toSplitWithChunkSize(
-      //   totalTokens,
-      //   chunkSize,
-      // );
 
-      // for await (const tokens of chunkTokens) {
-      //   const { success } = await this.process({
-      //     tokens,
-      //     maxHistoricalRecordDays,
-      //     today,
-      //   });
-      // }
+      const chunkTokens: Token[][] = toSplitWithChunkSize(
+        totalTokens,
+        chunkSize,
+      );
+
+      for await (const tokens of chunkTokens) {
+        try {
+          await this.process({
+            tokens,
+            maxHistoricalRecordDays,
+            today,
+          });
+        } catch (e) {
+          const wrappedError = this.taskHandlerService.wrappedError(e);
+
+          // 인터널 노말 에러 시
+          if (wrappedError.level === TASK_EXCEPTION_LEVEL.NORMAL) {
+            continue;
+          }
+          throw Error(e);
+        }
+      }
 
       return log;
     } catch (e) {
