@@ -39,25 +39,46 @@ export abstract class NFTTaskTemplate extends TaskBase {
     };
   }
 
+  /**
+   * NFT 총 발행량 조회
+   * @returns NFT 총 발행량
+   */
   async getNetworkPid(): Promise<BigNumber> {
     return this.context.getNFTokenTotalSupply();
   }
 
+  /**
+   * 마지막으로 작업된 NFT 인덱스
+   * @returns 마지막으로 작업된 NFT 인덱스
+   */
   async getLatestWorkedPid(): Promise<number> {
     const task = await this.taskHandlerService.getTask(this.taskId);
     return task?.pid || 0;
   }
 
+  /**
+   * 청크 사이즈
+   * @returns 청크 사이즈
+   */
   async getChunkSize(): Promise<number> {
     const task = await this.taskHandlerService.getTask(this.taskId);
     return parseInt(get(task.config, 'chunk'), 10) || 10;
   }
 
+  /**
+   * NFT 메타데이터 내 Image 또는 Animation 주소가 저장된 경로
+   * @returns 경로
+   */
   async getImageOrAnimationPath(): Promise<string> {
     const task = await this.taskHandlerService.getTask(this.taskId);
     return get(task.config, 'path');
   }
 
+  /**
+   * 진행
+   * @param data  { totalPids: 작업 인덱스 모음, endPid: 마지막 인덱스, imageOrAnimationPath: 이미지 또는 애니매이션 주소가 저장된 경로}
+   * @returns
+   */
   async process(data: {
     totalPids: number[];
     endPid: number;
@@ -143,6 +164,10 @@ export abstract class NFTTaskTemplate extends TaskBase {
     }
   }
 
+  /**
+   * 메인
+   * @returns 로그 
+   */
   async run(): Promise<Record<string, any>> {
     const log = this.loggingForm();
 

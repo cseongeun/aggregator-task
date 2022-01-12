@@ -1,10 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import {
-  EntityManager,
-  getConnection,
-  QueryRunner,
-  TransactionManager,
-} from 'typeorm';
+import { EntityManager, QueryRunner, TransactionManager } from 'typeorm';
+import { BigNumber } from 'ethers';
 import { getBatchERC20TokenInfos } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
 import { add, div, mul, pow } from '@seongeun/aggregator-util/lib/bignumber';
 import { divideDecimals } from '@seongeun/aggregator-util/lib/decimals';
@@ -15,60 +11,65 @@ import {
 } from '@seongeun/aggregator-base/lib/service';
 import { Token } from '@seongeun/aggregator-base/lib/entity';
 import { AaveAvalancheSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/aave/avalanche/aave.avalanche.scheduler.service';
-import { TaskBase } from '../../task.base';
 import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
 import { TASK_EXCEPTION_LEVEL } from '../../task-app/exception/task-exception.constant';
 import { TASK_ID } from '../../task-app.constant';
-import { BigNumber } from 'ethers';
+import { LendingTaskTemplate } from '../../task-app/template/lending.task.template';
 
 @Injectable()
-export class AaveAvalancheLendingTask extends TaskBase {
+export class AaveAvalancheLendingTask extends LendingTaskTemplate {
   constructor(
     public readonly taskHandlerService: TaskHandlerService,
     public readonly lendingService: LendingService,
-    private readonly tokenService: TokenService,
-    private readonly context: AaveAvalancheSchedulerService,
+    public readonly tokenService: TokenService,
+    public readonly context: AaveAvalancheSchedulerService,
   ) {
-    super(TASK_ID.AAVE_AVALANCHE_LENDING, taskHandlerService);
-  }
-
-  loggingForm(): Record<string, any> {
-    return {
-      total: 0,
-      success: 0,
-      warn: 0,
-    };
+    super(
+      TASK_ID.AAVE_AVALANCHE_LENDING,
+      taskHandlerService,
+      lendingService,
+      tokenService,
+      context,
+    );
   }
 
   async registerLending(
-    marketInfo: {
+    lendingInfo: {
       supplyToken: Token;
       borrowToken: Token;
       address: string;
-      reserve: BigNumber;
+      reserve: string;
       aTokenDecimals: string;
       sTokenDecimals: string;
       vTokenDecimals: string;
     },
     @TransactionManager() manager?: EntityManager,
   ): Promise<boolean> {
-    if (
-      isUndefined(marketInfo.supplyToken) ||
-      isUndefined(marketInfo.borrowToken)
-    ) {
+    const {
+      supplyToken,
+      borrowToken,
+      address,
+      reserve,
+      aTokenDecimals,
+      sTokenDecimals,
+      vTokenDecimals,
+    } = lendingInfo;
+
+    if (isUndefined(supplyToken) || isUndefined(borrowToken)) {
       return false;
     }
+
     await this.lendingService.repository.createOneBy(
       {
         protocol: this.context.protocol,
-        supplyToken: marketInfo.supplyToken,
-        borrowToken: marketInfo.borrowToken,
-        address: marketInfo.address,
+        supplyToken,
+        borrowToken,
+        address,
         data: {
-          reserve: marketInfo.reserve,
-          aTokenDecimals: marketInfo.aTokenDecimals,
-          sTokenDecimals: marketInfo.sTokenDecimals,
-          vTokenDecimals: marketInfo.vTokenDecimals,
+          reserve,
+          aTokenDecimals,
+          sTokenDecimals,
+          vTokenDecimals,
         },
       },
       manager,
@@ -77,7 +78,7 @@ export class AaveAvalancheLendingTask extends TaskBase {
   }
 
   async refreshLending(
-    marketInfo: {
+    lendingInfo: {
       supplyToken: Token;
       borrowToken: Token;
       availableLiquidity: BigNumber;
@@ -89,65 +90,66 @@ export class AaveAvalancheLendingTask extends TaskBase {
       variableBorrowIndex: BigNumber;
       liquidationThreshold: BigNumber;
       reserveFactor: BigNumber;
-      reserve: BigNumber;
+      reserve: string;
       aTokenDecimals: string;
       sTokenDecimals: string;
       vTokenDecimals: string;
     },
     @TransactionManager() manager?: EntityManager,
   ): Promise<void> {
+    const {
+      supplyToken,
+      borrowToken,
+      availableLiquidity,
+      totalStableDebt,
+      totalVariableDebt,
+      liquidityRate,
+      variableBorrowRate,
+      liquidationThreshold,
+      reserveFactor,
+      reserve,
+      aTokenDecimals,
+      sTokenDecimals,
+      vTokenDecimals,
+    } = lendingInfo;
+
     // liquidity
-    const marketLiquidity = marketInfo.availableLiquidity;
+    const marketLiquidity = availableLiquidity;
 
     const liquidityAmount = divideDecimals(
       marketLiquidity.toString(),
-      marketInfo.supplyToken.decimals,
+      supplyToken.decimals,
     );
 
-    const liquidityValue = mul(
-      liquidityAmount,
-      marketInfo.supplyToken.priceUSD,
-    );
+    const liquidityValue = mul(liquidityAmount, supplyToken.priceUSD);
 
     // borrow
-    const marketBorrow = add(
-      marketInfo.totalVariableDebt,
-      marketInfo.totalStableDebt,
-    );
+    const marketBorrow = add(totalVariableDebt, totalStableDebt);
 
-    const borrowAmount = divideDecimals(
-      marketBorrow,
-      marketInfo.borrowToken.decimals,
-    );
+    const borrowAmount = divideDecimals(marketBorrow, borrowToken.decimals);
 
-    const borrowValue = mul(borrowAmount, marketInfo.borrowToken.priceUSD);
+    const borrowValue = mul(borrowAmount, borrowToken.priceUSD);
 
     // supply
     const supplyAmount = add(liquidityAmount, borrowAmount);
 
-    const supplyValue = mul(supplyAmount, marketInfo.supplyToken.priceUSD);
+    const supplyValue = mul(supplyAmount, supplyToken.priceUSD);
 
     // borrow supply apy
-    const supplyApy = mul(
-      div(marketInfo.liquidityRate.toString(), pow(10, 27)),
-      100,
-    );
+    const supplyApy = mul(div(liquidityRate.toString(), pow(10, 27)), 100);
 
-    const borrowApy = mul(
-      div(marketInfo.variableBorrowRate.toString(), pow(10, 27)),
-      100,
-    );
+    const borrowApy = mul(div(variableBorrowRate.toString(), pow(10, 27)), 100);
 
     // collateral, reserve factor
-    const collateralFactor = div(marketInfo.liquidationThreshold, 100);
+    const collateralFactorPercent = div(liquidationThreshold, 100);
 
-    const reserveFactor = div(marketInfo.reserveFactor, 100);
+    const reserveFactorPercent = div(reserveFactor, 100);
 
     await this.lendingService.repository.updateOneBy(
       {
         protocol: this.context.protocol,
-        supplyToken: marketInfo.supplyToken,
-        borrowToken: marketInfo.borrowToken,
+        supplyToken,
+        borrowToken,
         address: this.context.lending.address,
       },
       {
@@ -159,13 +161,13 @@ export class AaveAvalancheLendingTask extends TaskBase {
         borrowAmount: borrowAmount.toString(),
         borrowValue: borrowValue.toString(),
         borrowApy: borrowApy.toString(),
-        collateralFactor: collateralFactor.toString(),
-        reserveFactor: reserveFactor.toString(),
+        collateralFactor: collateralFactorPercent.toString(),
+        reserveFactor: reserveFactorPercent.toString(),
         data: {
-          reserve: marketInfo.reserve,
-          aTokenDecimals: marketInfo.aTokenDecimals,
-          sTokenDecimals: marketInfo.sTokenDecimals,
-          vTokenDecimals: marketInfo.vTokenDecimals,
+          reserve,
+          sTokenDecimals,
+          aTokenDecimals,
+          vTokenDecimals,
         },
         status: true,
       },
@@ -173,13 +175,40 @@ export class AaveAvalancheLendingTask extends TaskBase {
     );
   }
 
-  async process(data: { marketInfo }): Promise<Record<string, any>> {
+  async process(data: {
+    lendingInfo: {
+      reserve: string;
+      aTokenAddress: string;
+      stableDebtTokenAddress: string;
+      variableDebtTokenAddress: string;
+      availableLiquidity: BigNumber;
+      totalStableDebt: BigNumber;
+      totalVariableDebt: BigNumber;
+      liquidityRate: BigNumber;
+      variableBorrowRate: BigNumber;
+      stableBorrowRate: BigNumber;
+      averageStableBorrowRate: BigNumber;
+      liquidityIndex: BigNumber;
+      variableBorrowIndex: BigNumber;
+      lastUpdateTimestamp: number;
+      decimals: BigNumber;
+      ltv: BigNumber;
+      liquidationThreshold: BigNumber;
+      liquidationBonus: BigNumber;
+      reserveFactor: BigNumber;
+      usageAsCollateralEnabled: boolean;
+      borrowingEnabled: boolean;
+      stableBorrowRateEnabled: boolean;
+      isActive: boolean;
+      isFrozen: boolean;
+    } | null;
+  }): Promise<Record<string, any>> {
     let queryRunner: QueryRunner | null = null;
 
     try {
-      const { marketInfo } = data;
+      const { lendingInfo } = data;
 
-      if (isNull(marketInfo)) {
+      if (isNull(lendingInfo)) {
         return { success: true };
       }
 
@@ -199,7 +228,7 @@ export class AaveAvalancheLendingTask extends TaskBase {
         reserveFactor,
         isActive,
         isFrozen,
-      } = marketInfo;
+      } = lendingInfo;
 
       const lendingMarketToken = await this.tokenService.repository.findOneBy({
         network: this.context.network,
@@ -229,8 +258,8 @@ export class AaveAvalancheLendingTask extends TaskBase {
             },
             { status: false },
           );
-          return { success: true };
         }
+        return { success: true };
       }
 
       queryRunner =
@@ -306,28 +335,36 @@ export class AaveAvalancheLendingTask extends TaskBase {
     }
   }
 
-  async run(): Promise<Record<string, any> | null> {
-    const log = this.loggingForm();
-
-    try {
-      const reserves = await this.context.getLendingReserveList();
-      const marketInfos = await this.context.getLendingMarketInfos(reserves);
-
-      log.total = marketInfos.length;
-
-      for await (const marketInfo of marketInfos) {
-        const { success } = await this.process({ marketInfo });
-
-        if (success) {
-          log.success += 1;
-          continue;
-        }
-        log.warn += 1;
-      }
-
-      return log;
-    } catch (e) {
-      throw Error(e);
-    }
+  async getLendingInfos(): Promise<
+    ({
+      reserve: string;
+      aTokenAddress: string;
+      stableDebtTokenAddress: string;
+      variableDebtTokenAddress: string;
+      availableLiquidity: BigNumber;
+      totalStableDebt: BigNumber;
+      totalVariableDebt: BigNumber;
+      liquidityRate: BigNumber;
+      variableBorrowRate: BigNumber;
+      stableBorrowRate: BigNumber;
+      averageStableBorrowRate: BigNumber;
+      liquidityIndex: BigNumber;
+      variableBorrowIndex: BigNumber;
+      lastUpdateTimestamp: number;
+      decimals: BigNumber;
+      ltv: BigNumber;
+      liquidationThreshold: BigNumber;
+      liquidationBonus: BigNumber;
+      reserveFactor: BigNumber;
+      usageAsCollateralEnabled: boolean;
+      borrowingEnabled: boolean;
+      stableBorrowRateEnabled: boolean;
+      isActive: boolean;
+      isFrozen: boolean;
+    } | null)[]
+  > {
+    const reserves = await this.context.getLendingReserveList();
+    const lendingInfos = await this.context.getLendingMarketInfos(reserves);
+    return lendingInfos;
   }
 }

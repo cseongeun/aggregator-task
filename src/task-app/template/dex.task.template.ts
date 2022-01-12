@@ -46,6 +46,7 @@ export abstract class DexTaskTemplate extends TaskBase {
     super(id, taskHandlerService);
   }
 
+  // 로그 폼
   loggingForm(): Record<string, any> {
     return {
       total: 0,
@@ -54,20 +55,37 @@ export abstract class DexTaskTemplate extends TaskBase {
     };
   }
 
+  /**
+   * 팩토리에서 생성된 페어 총 갯수 조회
+   * @returns 페어 총 갯수
+   */
   async getNetworkPid(): Promise<BigNumber> {
     return this.context.getDexFactoryTotalLength();
   }
 
+  /**
+   * 마지막으로 작업된 페어 인덱스
+   * @returns 마지막으로 작업된 페어 인덱스
+   */
   async getLatestWorkedPid(): Promise<number> {
     const task = await this.taskHandlerService.getTask(this.taskId);
     return task?.pid || 0;
   }
 
+  /**
+   * 청크 사이즈
+   * @returns 청크 사이즈
+   */
   async getChunkSize(): Promise<number> {
     const task = await this.taskHandlerService.getTask(this.taskId);
     return parseInt(get(task.config, 'chunk'), 10) || 10;
   }
 
+  /**
+   * 페어 정보를 멀티 토큰과와 싱글토큰으로 그룹핑
+   * @param pairInfos { pair: 페어 주소, token0: 토큰 0 주소, token1: 토큰 1 주소 }
+   * @returns { uniqueMultiTokenAddresses: 멀티 토큰 주소 모음(unique), uniqueSingleTokenAddresses: 유니크한 싱글 토큰 주소 모음(unique) }
+   */
   grouping(pairInfos: any[]): {
     uniqueMultiTokenAddresses: string[];
     uniqueSingleTokenAddresses: string[];
@@ -87,6 +105,12 @@ export abstract class DexTaskTemplate extends TaskBase {
     };
   }
 
+  /**
+   * 이미 저장된 토큰 제거
+   * @param multiTokenAddresses 멀티 토큰 주소 모음
+   * @param singleTokenAddresses 싱글 토큰 주소 모음
+   * @returns { newMultiTokenAddresses: 저장되지않은 신규 멀티 토큰 주소 모음, newSingleTokenAddresses: 저장되지않은 신규 싱글 토큰 주소 모음 }
+   */
   async removeRegisteredTokens(
     multiTokenAddresses: string[],
     singleTokenAddresses: string[],
@@ -118,6 +142,12 @@ export abstract class DexTaskTemplate extends TaskBase {
     return { newMultiTokenAddresses, newSingleTokenAddresses };
   }
 
+  /**
+   * 유효하지않은 토큰 주소 제거
+   * @param multiTokenAddresses 멀티 토큰 주소 모음
+   * @param singleTokenAddresses 싱글 토큰 주소 모음
+   * @returns { validMultiTokenAddresses: 유효한 멀티 토큰 주소 모음, validSingleTokenAddresses: 유효한 싱글 토큰 주소 모음, invalidSingleTokenAddresses: 유효하지않은 싱글 토큰 주소 모음 }
+   */
   async removeInvalidTokens(
     multiTokenAddresses: string[],
     singleTokenAddresses: string[],
@@ -161,6 +191,13 @@ export abstract class DexTaskTemplate extends TaskBase {
     };
   }
 
+  /**
+   * 멀티 토큰 포지션에 존재하는 싱글 토큰 확인 후 싱글 토큰으로 이전
+   * @param multiTokenAddresses 멀티 토큰 주소 모음
+   * @param singleTokenAddresses 싱글 토큰 주소 모음
+   * @param invalidSingleTokenAddresses 유효하지않은 싱글 토큰 주소 모음
+   * @returns { pureMultiTokenAddresses: 완전한 멀티 토큰 주소 모음, pureSingleTokenAddresses: 완전한 싱글 토큰 주소 모음, pureInvalidSingleTokenAddresses: 완전한 유효하지않은 싱글 토큰 주소 모음 }
+   */
   async checkMultiTokenInSinglePosition(
     multiTokenAddresses: string[],
     singleTokenAddresses: string[],
@@ -233,6 +270,12 @@ export abstract class DexTaskTemplate extends TaskBase {
     };
   }
 
+  /**
+   * 토큰 정보 가져오기
+   * @param multiTokenAddresses 멀티 토큰 주소 모음
+   * @param singleTokenAddresses 싱글 토큰 주소 모음
+   * @returns { multiTokenInfos: 멀티 토큰 정보 모음, singleTokenInfos: 싱글 토큰 정보 모음 }
+   */
   async getTokenInfos(
     multiTokenAddresses: string[],
     singleTokenAddresses: string[],
@@ -312,6 +355,12 @@ export abstract class DexTaskTemplate extends TaskBase {
     return { multiTokenInfos, singleTokenInfos };
   }
 
+  /**
+   * 싱글 토큰 생성
+   * @param singleTokenAddresses 싱글 토큰 주소 모음
+   * @param singleTokenInfos 싱글 토큰 정보 모음
+   * @param manager 트랜잭션 매니저
+   */
   async createSingleTokens(
     singleTokenAddresses: string[],
     singleTokenInfos: any,
@@ -339,6 +388,14 @@ export abstract class DexTaskTemplate extends TaskBase {
     );
   }
 
+  /**
+   * 멀티 토큰 생성
+   * @param multiTokenAddresses 멀티 토큰 주소 모음
+   * @param multiTokenInfos 멀티 토큰 정보 모음
+   * @param multiTokenComposed 멀티 토큰 구성 정보 모음
+   * @param invalidSingleTokenAddresses 유효하지않은 싱글 토큰 주소 모음
+   * @param manager 트랜잭션 매지너
+   */
   async createMultiTokens(
     multiTokenAddresses: string[],
     multiTokenInfos: any,
@@ -445,14 +502,24 @@ export abstract class DexTaskTemplate extends TaskBase {
     }
   }
 
-  async getPairsInfo(multiTokens: string[]) {
+  /**
+   * 멀티 토큰 구성 정보 가져오기
+   * @param multiTokenAddresses 멀티 토큰 주소 모음
+   * @returns 멀티 토큰 정보
+   */
+  async getPairsInfo(multiTokenAddresses: string[]): Promise<any[]> {
     return getBatchPairInfos(
       this.context.provider,
       this.context.multiCallAddress,
-      multiTokens,
+      multiTokenAddresses,
     );
   }
 
+  /**
+   * 진행
+   * @param data { totalPids: 작업 인덱스 모음, endPid: 마지막 인덱스 }
+   * @returns
+   */
   async process(data: {
     totalPids: number[];
     endPid: number;
@@ -540,6 +607,10 @@ export abstract class DexTaskTemplate extends TaskBase {
     }
   }
 
+  /**
+   * 메인
+   * @returns 로그 
+   */
   async run(): Promise<Record<string, any>> {
     const log = this.loggingForm();
 

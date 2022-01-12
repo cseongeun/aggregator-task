@@ -23,6 +23,10 @@ export abstract class FarmTaskTemplate extends TaskBase {
     super(id, taskHandlerService);
   }
 
+  /**
+   * 로깅 폼
+   * @returns 로깅 폼 객체
+   */
   loggingForm(): Record<string, any> {
     return {
       total: 0,
@@ -67,6 +71,7 @@ export abstract class FarmTaskTemplate extends TaskBase {
   /**
    * 팜 등록
    * @param farmInfo 팜 정보
+   * @param manager 트랜잭션 매니저
    */
   abstract registerFarm(
     farmInfo: Record<string, any>,
@@ -77,6 +82,7 @@ export abstract class FarmTaskTemplate extends TaskBase {
    * 팜 업데이트
    * @param farmInfo 팜 정보
    * @param farmState 팜 상태
+   * @param manager 트랜잭션 매니저
    */
   abstract refreshFarm(
     farmInfo: Record<string, any>,
@@ -103,6 +109,10 @@ export abstract class FarmTaskTemplate extends TaskBase {
     return parseInt(get(task.config, 'chunk'), 10) || 30;
   }
 
+  /**
+   * 메인
+   * @returns 로그 
+   */
   async run(): Promise<Record<string, any>> {
     const log = this.loggingForm();
 

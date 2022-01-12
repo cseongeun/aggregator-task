@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { QueryRunner } from 'typeorm';
 import BigNumberJs from 'bignumber.js';
 import {
   TOKEN_PRICE_ORACLE_TYPE,
@@ -10,8 +11,6 @@ import {
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
 import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
-import { TASK_EXCEPTION_LEVEL } from '../../../exception/task-exception.constant';
-import { TokenPriceBaseService } from './service.base';
 import { retryWrap } from '@seongeun/aggregator-util/lib/retry-wrapper';
 import { getBatchStaticAggregator } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
 import { Provider } from '@ethersproject/providers';
@@ -20,7 +19,6 @@ import {
   toSplitWithChunkSize,
   zip,
 } from '@seongeun/aggregator-util/lib/array';
-import { QueryRunner } from 'typeorm';
 import {
   div,
   isZero,
@@ -28,7 +26,6 @@ import {
   toFixed,
 } from '@seongeun/aggregator-util/lib/bignumber';
 import { divideDecimals } from '@seongeun/aggregator-util/lib/decimals';
-import { TaskHandlerService } from '../../../handler/task-handler.service';
 import {
   decodeFunctionResultData,
   encodeFunction,
@@ -36,6 +33,9 @@ import {
 } from '@seongeun/aggregator-util/lib/encodeDecode';
 import { ERC20_ABI } from '@seongeun/aggregator-util/lib/erc20';
 import { ZERO } from '@seongeun/aggregator-util/lib/constant';
+import { TaskHandlerService } from '../../../handler/task-handler.service';
+import { TASK_EXCEPTION_LEVEL } from '../../../exception/task-exception.constant';
+import { TokenPriceBaseService } from './service.base';
 
 interface ITokenExtendBestPair extends Token {
   bestPair: Token;

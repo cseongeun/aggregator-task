@@ -21,7 +21,16 @@ export abstract class TokenPriceBaseService {
     public readonly taskHandlerService: TaskHandlerService,
   ) {}
 
+  /**
+   * 로직이 작성될 관련 토큰
+   * @param network 네트워크
+   */
   abstract getTargetTotalTokens(network: Network): Promise<Token[]>;
+
+  /**
+   * 관련 토큰 가격 추적 로직
+   * @param data 토큰 가격 추적에 필요한 데아터 모음
+   */
   abstract trackingPrice(data: {
     network: Network;
     tokens: Token[];
@@ -29,6 +38,7 @@ export abstract class TokenPriceBaseService {
     maxHistoricalRecordDays: number;
   }): Promise<void>;
 
+  // 로그 폼
   loggingForm(): { total: number; success: number; warn: number } {
     return {
       total: 0,

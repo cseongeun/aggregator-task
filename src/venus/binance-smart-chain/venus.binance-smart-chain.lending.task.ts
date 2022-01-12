@@ -6,14 +6,8 @@ import {
 import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
 import { VenusBinanceSmartChainSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/venus/binance-smart-chain/venus.binance-smart-chain.scheduler.service';
 import { TASK_ID } from '../../task-app.constant';
-import { TaskBase } from '../../task.base';
-import {
-  EntityManager,
-  getConnection,
-  QueryRunner,
-  TransactionManager,
-} from 'typeorm';
-import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
+import { EntityManager, QueryRunner, TransactionManager } from 'typeorm';
+import { isUndefined } from '@seongeun/aggregator-util/lib/type';
 import { isZeroAddress } from '@seongeun/aggregator-util/lib/address';
 import { TASK_EXCEPTION_LEVEL } from '../../task-app/exception/task-exception.constant';
 import { Token } from '@seongeun/aggregator-base/lib/entity';
@@ -31,43 +25,41 @@ import {
   ONE_DAY_SECONDS,
   ONE_YEAR_DAYS,
 } from '@seongeun/aggregator-util/lib/constant';
+import { LendingTaskTemplate } from '../../task-app/template/lending.task.template';
 
 @Injectable()
-export class VenusBinanceSmartChainLendingTask extends TaskBase {
+export class VenusBinanceSmartChainLendingTask extends LendingTaskTemplate {
   constructor(
     public readonly taskHandlerService: TaskHandlerService,
     public readonly lendingService: LendingService,
-    private readonly tokenService: TokenService,
-    private readonly context: VenusBinanceSmartChainSchedulerService,
+    public readonly tokenService: TokenService,
+    public readonly context: VenusBinanceSmartChainSchedulerService,
   ) {
-    super(TASK_ID.VENUS_BINANCE_SMART_CHAIN_LENDING, taskHandlerService);
-  }
-
-  loggingForm(): Record<string, any> {
-    return {
-      total: 0,
-      success: 0,
-      warn: 0,
-    };
+    super(
+      TASK_ID.VENUS_BINANCE_SMART_CHAIN_LENDING,
+      taskHandlerService,
+      lendingService,
+      tokenService,
+      context,
+    );
   }
 
   async registerLending(
-    marketInfo: { supplyToken: Token; borrowToken: Token; address: string },
+    lendingInfo: { supplyToken: Token; borrowToken: Token; address: string },
     @TransactionManager() manager?: EntityManager,
   ): Promise<boolean> {
-    if (
-      isUndefined(marketInfo.supplyToken) ||
-      isUndefined(marketInfo.borrowToken)
-    ) {
+    const { supplyToken, borrowToken, address } = lendingInfo;
+
+    if (isUndefined(supplyToken) || isUndefined(borrowToken)) {
       return false;
     }
 
     await this.lendingService.repository.createOneBy(
       {
         protocol: this.context.protocol,
-        supplyToken: marketInfo.supplyToken,
-        borrowToken: marketInfo.borrowToken,
-        address: marketInfo.address,
+        supplyToken,
+        borrowToken,
+        address,
       },
       manager,
     );
@@ -75,7 +67,7 @@ export class VenusBinanceSmartChainLendingTask extends TaskBase {
   }
 
   async refreshLending(
-    marketInfo: {
+    lendingInfo: {
       supplyToken: Token;
       borrowToken: Token;
       address: string;
@@ -88,46 +80,55 @@ export class VenusBinanceSmartChainLendingTask extends TaskBase {
     },
     @TransactionManager() manager?: EntityManager,
   ): Promise<void> {
+    const {
+      supplyToken,
+      borrowToken,
+      address,
+      supplyRatePerBlock,
+      borrowRatePerBlock,
+      collateralFactorMantissa,
+      reserveFactorMantissa,
+      totalBorrows,
+      totalReserves,
+    } = lendingInfo;
+
     /**
      * Liquidity
      */
-    const marketLiquidity = isZeroAddress(marketInfo.supplyToken.address)
-      ? await this.context.getBalance(marketInfo.address)
+    const marketLiquidity = isZeroAddress(supplyToken.address)
+      ? await this.context.getBalance(address)
       : await getSafeERC20BalanceOf(
           this.context.provider,
           this.context.multiCallAddress,
-          marketInfo.supplyToken.address,
-          marketInfo.address,
+          supplyToken.address,
+          address,
         );
 
     const liquidityAmount = divideDecimals(
       marketLiquidity.toString(),
-      marketInfo.supplyToken.decimals,
+      supplyToken.decimals,
     );
 
-    const liquidityValue = mul(
-      liquidityAmount,
-      marketInfo.supplyToken.priceUSD,
-    );
+    const liquidityValue = mul(liquidityAmount, supplyToken.priceUSD);
 
     /**
      * Borrow
      */
-    const borrowAmount = divideDecimals(marketInfo.totalBorrows, 18);
-    const borrowValue = mul(borrowAmount, marketInfo.borrowToken.priceUSD);
+    const borrowAmount = divideDecimals(totalBorrows, 18);
+    const borrowValue = mul(borrowAmount, borrowToken.priceUSD);
 
     /**
      * Reserve
      */
-    const reserveAmount = divideDecimals(marketInfo.totalReserves, 18);
-    const reserveValue = mul(reserveAmount, marketInfo.supplyToken.priceUSD);
+    const reserveAmount = divideDecimals(totalReserves, 18);
+    const reserveValue = mul(reserveAmount, supplyToken.priceUSD);
 
     /**
      * Supply
      */
     const supplyAmount = sub(add(liquidityAmount, borrowAmount), reserveAmount);
 
-    const supplyValue = mul(supplyAmount, marketInfo.supplyToken.priceUSD);
+    const supplyValue = mul(supplyAmount, supplyToken.priceUSD);
 
     /**
      * Blocks One Year
@@ -140,8 +141,8 @@ export class VenusBinanceSmartChainLendingTask extends TaskBase {
     /**
      * Supply, Borrow Rate
      */
-    const supplyRate = divideDecimals(marketInfo.supplyRatePerBlock, 18);
-    const borrowRate = divideDecimals(marketInfo.borrowRatePerBlock, 18);
+    const supplyRate = divideDecimals(supplyRatePerBlock, 18);
+    const borrowRate = divideDecimals(borrowRatePerBlock, 18);
 
     /**
      * Supply, Borrow Apr
@@ -153,21 +154,21 @@ export class VenusBinanceSmartChainLendingTask extends TaskBase {
      * Collateral, Reserve Factor
      */
     const collateralFactor = mul(
-      toFixed(divideDecimals(marketInfo.collateralFactorMantissa, 18)),
+      toFixed(divideDecimals(collateralFactorMantissa, 18)),
       100,
     );
 
     const reserveFactor = mul(
-      toFixed(divideDecimals(marketInfo.reserveFactorMantissa, 18)),
+      toFixed(divideDecimals(reserveFactorMantissa, 18)),
       100,
     );
 
     await this.lendingService.repository.updateOneBy(
       {
         protocol: this.context.protocol,
-        supplyToken: marketInfo.supplyToken,
-        borrowToken: marketInfo.borrowToken,
-        address: marketInfo.address,
+        supplyToken,
+        borrowToken,
+        address,
       },
       {
         liquidityAmount: liquidityAmount.toString(),
@@ -188,13 +189,58 @@ export class VenusBinanceSmartChainLendingTask extends TaskBase {
     );
   }
 
-  async process(data: { marketAddress: string }): Promise<Record<string, any>> {
+  async getLendingInfos(): Promise<
+    ({
+      marketAddress: string;
+      underlying: string;
+      supplyRatePerBlock: BigNumber;
+      borrowRatePerBlock: BigNumber;
+      decimals: number;
+      totalBorrows: BigNumber;
+      totalReserves: BigNumber;
+      reserveFactorMantissa: BigNumber;
+      market: {
+        isListed: boolean;
+        collateralFactorMantissa: BigNumber;
+        isVenus: boolean;
+      };
+    } | null)[]
+  > {
+    const marketAddresses = await this.context.getLendingAllMarkets();
+
+    const lendingInfos = [];
+    for await (const marketAddress of marketAddresses) {
+      const info = await this.context.getLendingMarketInfos(marketAddress);
+      lendingInfos.push({ marketAddress, ...info });
+    }
+
+    return lendingInfos;
+  }
+
+  async process(data: {
+    lendingInfo: {
+      marketAddress: string;
+      underlying: string;
+      supplyRatePerBlock: BigNumber;
+      borrowRatePerBlock: BigNumber;
+      decimals: number;
+      totalBorrows: BigNumber;
+      totalReserves: BigNumber;
+      reserveFactorMantissa: BigNumber;
+      market: {
+        isListed: boolean;
+        collateralFactorMantissa: BigNumber;
+        isVenus: boolean;
+      };
+    } | null;
+  }): Promise<Record<string, any>> {
     let queryRunner: QueryRunner | null = null;
 
     try {
-      const { marketAddress } = data;
+      const { lendingInfo } = data;
 
       const {
+        marketAddress,
         underlying,
         supplyRatePerBlock,
         borrowRatePerBlock,
@@ -202,7 +248,7 @@ export class VenusBinanceSmartChainLendingTask extends TaskBase {
         totalReserves,
         reserveFactorMantissa,
         market: { isListed, collateralFactorMantissa },
-      } = await this.context.getLendingMarketInfos(marketAddress);
+      } = lendingInfo;
 
       const lendingMarketToken = await this.tokenService.repository.findOneBy({
         network: this.context.network,
@@ -211,7 +257,7 @@ export class VenusBinanceSmartChainLendingTask extends TaskBase {
       });
 
       if (isUndefined(lendingMarketToken)) {
-        success: true;
+        return { success: true };
       }
 
       const lendingMarket = await this.lendingService.repository.findOneBy({
@@ -232,8 +278,8 @@ export class VenusBinanceSmartChainLendingTask extends TaskBase {
             },
             { status: false },
           );
-          return { success: true };
         }
+        return { success: true };
       }
 
       queryRunner =
@@ -286,29 +332,6 @@ export class VenusBinanceSmartChainLendingTask extends TaskBase {
       throw Error(e);
     } finally {
       await this.taskHandlerService.transaction.releaseTransaction(queryRunner);
-    }
-  }
-
-  async run(): Promise<Record<string, any>> {
-    const log = this.loggingForm();
-
-    try {
-      const allMarketAddress = await this.context.getLendingAllMarkets();
-
-      log.total = allMarketAddress.length;
-
-      for await (const marketAddress of allMarketAddress) {
-        const { success } = await this.process({ marketAddress });
-
-        if (success) {
-          log.success += 0;
-          continue;
-        }
-        log.warn += 1;
-      }
-      return log;
-    } catch (e) {
-      throw Error(e);
     }
   }
 }

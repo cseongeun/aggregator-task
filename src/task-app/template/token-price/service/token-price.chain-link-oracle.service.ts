@@ -10,11 +10,6 @@ import {
 } from '@seongeun/aggregator-base/lib/service';
 import { get } from '@seongeun/aggregator-util/lib/object';
 import { isUndefined } from '@seongeun/aggregator-util/lib/type';
-import {
-  TASK_EXCEPTION_CODE,
-  TASK_EXCEPTION_LEVEL,
-} from '../../../exception/task-exception.constant';
-import { TokenPriceBaseService } from './service.base';
 import { retryWrap } from '@seongeun/aggregator-util/lib/retry-wrapper';
 import { getBatchChainLinkData } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
 import { Provider } from '@ethersproject/providers';
@@ -23,6 +18,11 @@ import { QueryRunner } from 'typeorm';
 import { isZero, toFixed } from '@seongeun/aggregator-util/lib/bignumber';
 import { divideDecimals } from '@seongeun/aggregator-util/lib/decimals';
 import { TaskHandlerService } from '../../../handler/task-handler.service';
+import {
+  TASK_EXCEPTION_CODE,
+  TASK_EXCEPTION_LEVEL,
+} from '../../../exception/task-exception.constant';
+import { TokenPriceBaseService } from './service.base';
 
 @Injectable()
 export class TokenPriceChainLinkService extends TokenPriceBaseService {
