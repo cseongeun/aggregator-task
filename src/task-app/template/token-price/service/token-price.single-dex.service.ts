@@ -1,25 +1,22 @@
 import { Injectable } from '@nestjs/common';
-import {
-  NETWORK_CHAIN_ID,
-  NETWORK_CHAIN_TYPE,
-  TOKEN_TYPE,
-} from '@seongeun/aggregator-base/lib/constant';
-import { Token } from '@seongeun/aggregator-base/lib/entity';
+import { TOKEN_TYPE } from '@seongeun/aggregator-base/lib/constant';
+import { Network, Token } from '@seongeun/aggregator-base/lib/entity';
 import {
   NetworkService,
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
-import { getBatchStaticAggregator } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
 import { isNull } from '@seongeun/aggregator-util/lib/type';
-import { IsNull, Not, QueryRunner } from 'typeorm';
-import { TASK_EXCEPTION_LEVEL } from '../../exception/task-exception.constant';
-import { TaskHandlerService } from '../../handler/task-handler.service';
+import { TASK_EXCEPTION_LEVEL } from '../../../exception/task-exception.constant';
+import { TokenPriceBaseService } from './service.base';
+import { retryWrap } from '@seongeun/aggregator-util/lib/retry-wrapper';
+import { getBatchStaticAggregator } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
 import { Provider } from '@ethersproject/providers';
 import {
   flat,
   toSplitWithChunkSize,
   zip,
 } from '@seongeun/aggregator-util/lib/array';
+import { IsNull, Not, QueryRunner } from 'typeorm';
 import {
   div,
   isGreaterThan,
@@ -28,14 +25,14 @@ import {
   toFixed,
 } from '@seongeun/aggregator-util/lib/bignumber';
 import { divideDecimals } from '@seongeun/aggregator-util/lib/decimals';
-import { TokenPriceTaskTemplate } from './token-price.task.template';
-import { ZERO } from '@seongeun/aggregator-util/lib/constant';
+import { TaskHandlerService } from '../../../handler/task-handler.service';
 import {
   decodeFunctionResultData,
   encodeFunction,
   validResult,
 } from '@seongeun/aggregator-util/lib/encodeDecode';
 import { ERC20_ABI } from '@seongeun/aggregator-util/lib/erc20';
+import { ZERO } from '@seongeun/aggregator-util/lib/constant';
 
 interface ITokenExtendBestTVLPairWithOther extends Token {
   bestTVLPair: Token;
@@ -43,37 +40,32 @@ interface ITokenExtendBestTVLPairWithOther extends Token {
 }
 
 @Injectable()
-export abstract class TokenPriceSingleDexTaskTemplate extends TokenPriceTaskTemplate {
+export class TokenPriceSingleDexService extends TokenPriceBaseService {
   constructor(
-    public readonly id: string,
-    public readonly chainType: NETWORK_CHAIN_TYPE,
-    public readonly chainId: NETWORK_CHAIN_ID,
-    public readonly taskHandlerService: TaskHandlerService,
-    public readonly tokenService: TokenService,
     public readonly networkService: NetworkService,
+    public readonly tokenService: TokenService,
+    public readonly taskHandlerService: TaskHandlerService,
   ) {
-    super(
-      id,
-      chainType,
-      chainId,
-      taskHandlerService,
-      tokenService,
-      networkService,
-    );
+    super(networkService, tokenService, taskHandlerService);
   }
 
   /**
    * 싱글 타입 네트워크 토큰 가져오기
    * @returns 토큰
    */
-  async getTargetTotalTokens() {
+  async getTargetTotalTokens(network: Network): Promise<Token[]> {
     return this.tokenService.search({
-      networkId: this.network.id,
+      networkId: network.id,
       type: TOKEN_TYPE.SINGLE,
       oracleType: null,
     });
   }
 
+  /**
+   * 싱글 토큰이 포함된 페어 중 가장 TVL이 높은 페어 선택
+   * @param tokens 추적하는 싱글 토큰들
+   * @returns 토큰 & 가장 높은 TVL 페어 & 페어 중 다른 한쌍
+   */
   async getTokenWithBestTVLPair(
     tokens: Token[],
   ): Promise<ITokenExtendBestTVLPairWithOther[]> {
@@ -144,6 +136,11 @@ export abstract class TokenPriceSingleDexTaskTemplate extends TokenPriceTaskTemp
     }
   }
 
+  /**
+   * 
+   * @param tokenWithBestTVLPairWithOther  토큰과 가장 높은 TVL을 가진 페어
+   * @returns 
+   */
   getInfoDataEncoding(
     tokenWithBestTVLPairWithOther: ITokenExtendBestTVLPairWithOther[],
   ): any[][] {
@@ -216,18 +213,14 @@ export abstract class TokenPriceSingleDexTaskTemplate extends TokenPriceTaskTemp
     return { targetTokenBalanceInPair, otherTokenBalanceInPair };
   }
 
-  /**
-   * 가격 수집 진행
-   * @param data { token: Token, maxHistoricalRecordDays: 최대 과거 기록일, today: 오늟 날짜 }
-   * @returns log
-   */
-  async process(data: {
+  async trackingPrice(data: {
+    network: Network;
     tokens: Token[];
     today: string;
     maxHistoricalRecordDays: number;
-  }): Promise<any> {
+  }): Promise<Record<string, any>> {
     try {
-      const { tokens, today, maxHistoricalRecordDays } = data;
+      const { network, tokens, today, maxHistoricalRecordDays } = data;
 
       const tokenWithBestTVLPairWithOther = await this.getTokenWithBestTVLPair(
         tokens,
@@ -237,10 +230,10 @@ export abstract class TokenPriceSingleDexTaskTemplate extends TokenPriceTaskTemp
         tokenWithBestTVLPairWithOther,
       );
 
-      const infoDataBatchCall = await this.retryWrap(
+      const infoDataBatchCall = await retryWrap(
         getBatchStaticAggregator(
-          this.networkService.provider(this.network.chainKey) as Provider,
-          this.networkService.multiCallAddress(this.network.chainKey),
+          this.networkService.provider(network.chainKey) as Provider,
+          this.networkService.multiCallAddress(network.chainKey),
           flat(infoDataEncode),
         ),
       );
@@ -303,6 +296,7 @@ export abstract class TokenPriceSingleDexTaskTemplate extends TokenPriceTaskTemp
           await this.taskHandlerService.transaction.commitTransaction(
             queryRunner,
           );
+          return {};
         } catch (e) {
           await this.taskHandlerService.transaction.rollbackTransaction(
             queryRunner,
@@ -322,7 +316,6 @@ export abstract class TokenPriceSingleDexTaskTemplate extends TokenPriceTaskTemp
           );
         }
       }
-      return { success: true };
     } catch (e) {
       throw Error(e);
     }

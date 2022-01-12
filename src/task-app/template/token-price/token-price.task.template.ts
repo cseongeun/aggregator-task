@@ -3,36 +3,20 @@ import {
   NETWORK_CHAIN_ID,
   NETWORK_CHAIN_TYPE,
 } from '@seongeun/aggregator-base/lib/constant';
-import { Network, Token } from '@seongeun/aggregator-base/lib/entity';
+import { Network } from '@seongeun/aggregator-base/lib/entity';
 import {
   NetworkService,
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
-import {
-  sortBy,
-  toSplitWithChunkSize,
-} from '@seongeun/aggregator-util/lib/array';
 import { get } from '@seongeun/aggregator-util/lib/object';
-import {
-  getBeforeSpecifiedDay,
-  getToday,
-} from '@seongeun/aggregator-util/lib/time';
-import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
+import { getToday } from '@seongeun/aggregator-util/lib/time';
 import { TaskBase } from '../../../task.base';
 import { TaskHandlerService } from '../../handler/task-handler.service';
-import { TASK_EXCEPTION_LEVEL } from '../../exception/task-exception.constant';
+import { TokenPriceBaseService } from './service/service.base';
 
 @Injectable()
 export abstract class TokenPriceTaskTemplate extends TaskBase {
   network: Network;
-
-  // 관련 토큰 가져오기
-  abstract getTargetTotalTokens(): Promise<Token[]>;
-  abstract process(data: {
-    tokens: Token[];
-    today: string;
-    maxHistoricalRecordDays: number;
-  }): Promise<Record<string, any>>;
 
   constructor(
     public readonly id: string,
@@ -45,6 +29,10 @@ export abstract class TokenPriceTaskTemplate extends TaskBase {
     super(id, taskHandlerService);
   }
 
+  loggingForm(): Record<string, any> {
+    return {};
+  }
+
   async onModuleInit(): Promise<void> {
     super.onModuleInit();
 
@@ -52,12 +40,6 @@ export abstract class TokenPriceTaskTemplate extends TaskBase {
       chainType: this.chainType,
       chainId: this.chainId,
     });
-  }
-
-  loggingForm(): Record<string, any> {
-    return {
-      total: 0,
-    };
   }
 
   /**
@@ -79,70 +61,55 @@ export abstract class TokenPriceTaskTemplate extends TaskBase {
   }
 
   /**
-   * 최대 기록 날짜가 지난 데이터 지우기
-   * @param historicalValue 과거 가격 데이터
-   * @param maxHistoricalRecordDays 최대로 기록하는 이전 날
-   * @returns 지난 날을 제거한 과거 가격 데이터
+   * 로그 라벨 및 토큰 가격 추적 서비스
    */
-  removePastMaxHistoricalDays(
-    historicalValue: Record<string, string>,
-    maxHistoricalRecordDays: number,
-  ) {
-    if (isNull(historicalValue) || isUndefined(historicalValue)) {
-      return historicalValue;
-    }
+  abstract getTokenPriceServiceMapLogLabel(): {
+    label: string;
+    service: TokenPriceBaseService;
+  }[];
 
-    const recordMaxPastDay = getBeforeSpecifiedDay(maxHistoricalRecordDays);
-    const recordedHistoricalDays = Object.keys(historicalValue);
-    const sortedRecordedHistoricalDays = sortBy(recordedHistoricalDays);
+  // token price 추적 서비스 시작
+  async process(data: {
+    targetService: TokenPriceBaseService;
+    chunkSize: number;
+    maxHistoricalRecordDays: number;
+    today: string;
+  }): Promise<Record<string, any>> {
+    const { targetService, chunkSize, maxHistoricalRecordDays, today } = data;
 
-    sortedRecordedHistoricalDays.forEach((recordDay) => {
-      if (
-        new Date(recordDay).getTime() < new Date(recordMaxPastDay).getTime()
-      ) {
-        delete historicalValue[recordDay];
-      }
+    const log = await targetService.run({
+      network: this.network,
+      chunkSize,
+      maxHistoricalRecordDays,
+      today,
     });
 
-    return historicalValue;
+    return log;
   }
 
   async run(): Promise<Record<string, any>> {
     const log = this.loggingForm();
+
     try {
-      const [totalTokens, chunkSize, maxHistoricalRecordDays, today] =
-        await Promise.all([
-          this.getTargetTotalTokens(),
-          this.getChunkSize(),
-          this.getMaxHistoricalRecordDays(),
-          getToday(),
-        ]);
+      const [chunkSize, maxHistoricalRecordDays, today] = await Promise.all([
+        this.getChunkSize(),
+        this.getMaxHistoricalRecordDays(),
+        getToday(),
+      ]);
 
-      log.total = totalTokens.length;
+      // 해당 네트워크 토큰의 가격을 추적하는 모든 서비스
+      const servicesWithLabel = this.getTokenPriceServiceMapLogLabel();
 
-      const chunkTokens: Token[][] = toSplitWithChunkSize(
-        totalTokens,
-        chunkSize,
-      );
+      for await (const { label, service } of servicesWithLabel) {
+        const result = await this.process({
+          targetService: service,
+          chunkSize,
+          maxHistoricalRecordDays,
+          today,
+        });
 
-      for await (const tokens of chunkTokens) {
-        try {
-          await this.process({
-            tokens,
-            maxHistoricalRecordDays,
-            today,
-          });
-        } catch (e) {
-          const wrappedError = this.taskHandlerService.wrappedError(e);
-
-          // 인터널 노말 에러 시
-          if (wrappedError.level === TASK_EXCEPTION_LEVEL.NORMAL) {
-            continue;
-          }
-          throw Error(e);
-        }
+        log[label] = result;
       }
-
       return log;
     } catch (e) {
       throw Error(e);

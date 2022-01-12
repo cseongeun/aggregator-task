@@ -1,55 +1,46 @@
 import { Injectable } from '@nestjs/common';
 import {
-  NETWORK_CHAIN_ID,
-  NETWORK_CHAIN_TYPE,
   TOKEN_PRICE_ORACLE_TYPE,
   TOKEN_TYPE,
 } from '@seongeun/aggregator-base/lib/constant';
-import { Token } from '@seongeun/aggregator-base/lib/entity';
+import { Network, Token } from '@seongeun/aggregator-base/lib/entity';
 import {
   NetworkService,
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
-import { getBatchChainLinkData } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
 import { get } from '@seongeun/aggregator-util/lib/object';
 import { isUndefined } from '@seongeun/aggregator-util/lib/type';
-import { QueryRunner } from 'typeorm';
-import { TASK_EXCEPTION_CODE } from '../../exception/task-exception.constant';
-import { TaskHandlerService } from '../../handler/task-handler.service';
+import {
+  TASK_EXCEPTION_CODE,
+  TASK_EXCEPTION_LEVEL,
+} from '../../../exception/task-exception.constant';
+import { TokenPriceBaseService } from './service.base';
+import { retryWrap } from '@seongeun/aggregator-util/lib/retry-wrapper';
+import { getBatchChainLinkData } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
 import { Provider } from '@ethersproject/providers';
 import { zip } from '@seongeun/aggregator-util/lib/array';
+import { QueryRunner } from 'typeorm';
 import { isZero, toFixed } from '@seongeun/aggregator-util/lib/bignumber';
 import { divideDecimals } from '@seongeun/aggregator-util/lib/decimals';
-
-import { TokenPriceTaskTemplate } from './token-price.task.template';
+import { TaskHandlerService } from '../../../handler/task-handler.service';
 
 @Injectable()
-export abstract class TokenPriceChainLinkOracleTaskTemplate extends TokenPriceTaskTemplate {
+export class TokenPriceChainLinkService extends TokenPriceBaseService {
   constructor(
-    public readonly id: string,
-    public readonly chainType: NETWORK_CHAIN_TYPE,
-    public readonly chainId: NETWORK_CHAIN_ID,
-    public readonly taskHandlerService: TaskHandlerService,
-    public readonly tokenService: TokenService,
     public readonly networkService: NetworkService,
+    public readonly tokenService: TokenService,
+    public readonly taskHandlerService: TaskHandlerService,
   ) {
-    super(
-      id,
-      chainType,
-      chainId,
-      taskHandlerService,
-      tokenService,
-      networkService,
-    );
+    super(networkService, tokenService, taskHandlerService);
   }
 
   /**
    * 체인링크 오라클을 사용하여 가격 정보를 가져오는 네트워크 토큰 가져오기
    * @returns 토큰
    */
-  async getTargetTotalTokens() {
+  async getTargetTotalTokens(network: Network): Promise<Token[]> {
     return this.tokenService.search({
-      networkId: this.network.id,
+      networkId: network.id,
       type: [TOKEN_TYPE.NATIVE, TOKEN_TYPE.SINGLE],
       oracleType: TOKEN_PRICE_ORACLE_TYPE.CHAIN_LINK,
     });
@@ -60,7 +51,7 @@ export abstract class TokenPriceChainLinkOracleTaskTemplate extends TokenPriceTa
    * @param tokens 토큰
    * @returns 체인링크 가격 정보
    */
-  async getChainLinkData(tokens: Token[]): Promise<any> {
+  async getChainLinkData(network: Network, tokens: Token[]): Promise<any> {
     const feedAddresses = tokens.map(({ tokenPrice: { oracleData } }) => {
       const feed = get(oracleData, 'feed');
 
@@ -72,10 +63,10 @@ export abstract class TokenPriceChainLinkOracleTaskTemplate extends TokenPriceTa
       return feed;
     });
 
-    const chainLinkBatchCall = await this.retryWrap(
+    const chainLinkBatchCall = await retryWrap(
       getBatchChainLinkData(
-        this.networkService.provider(this.network.chainKey) as Provider,
-        this.networkService.multiCallAddress(this.network.chainKey),
+        this.networkService.provider(network.chainKey) as Provider,
+        this.networkService.multiCallAddress(network.chainKey),
         feedAddresses,
       ),
     );
@@ -83,20 +74,16 @@ export abstract class TokenPriceChainLinkOracleTaskTemplate extends TokenPriceTa
     return chainLinkBatchCall;
   }
 
-  /**
-   * 가격 수집 진행
-   * @param data { token: Token, maxHistoricalRecordDays: 최대 과거 기록일, today: 오늟 날짜 }
-   * @returns log
-   */
-  async process(data: {
+  async trackingPrice(data: {
+    network: Network;
     tokens: Token[];
     today: string;
     maxHistoricalRecordDays: number;
   }): Promise<Record<string, any>> {
     try {
-      const { tokens, today, maxHistoricalRecordDays } = data;
+      const { network, tokens, today, maxHistoricalRecordDays } = data;
 
-      const chainLinkBatchCall = await this.getChainLinkData(tokens);
+      const chainLinkBatchCall = await this.getChainLinkData(network, tokens);
 
       const tokenWithChainLink = zip(tokens, chainLinkBatchCall);
 
@@ -136,6 +123,14 @@ export abstract class TokenPriceChainLinkOracleTaskTemplate extends TokenPriceTa
           await this.taskHandlerService.transaction.rollbackTransaction(
             queryRunner,
           );
+
+          const wrappedError = this.taskHandlerService.wrappedError(e);
+
+          // 인터널 노말 에러 시
+          if (wrappedError.level === TASK_EXCEPTION_LEVEL.NORMAL) {
+            continue;
+          }
+
           throw Error(e);
         } finally {
           await this.taskHandlerService.transaction.releaseTransaction(
@@ -144,7 +139,7 @@ export abstract class TokenPriceChainLinkOracleTaskTemplate extends TokenPriceTa
         }
       }
 
-      return { success: true };
+      return {};
     } catch (e) {
       throw Error(e);
     }

@@ -1,78 +1,67 @@
 import { Injectable } from '@nestjs/common';
 import {
-  NETWORK_CHAIN_ID,
-  NETWORK_CHAIN_TYPE,
   TOKEN_PRICE_ORACLE_TYPE,
   TOKEN_TYPE,
 } from '@seongeun/aggregator-base/lib/constant';
-import { Token } from '@seongeun/aggregator-base/lib/entity';
+import { Network, Token } from '@seongeun/aggregator-base/lib/entity';
 import {
   NetworkService,
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
+import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
+import { TASK_EXCEPTION_LEVEL } from '../../../exception/task-exception.constant';
+import { TokenPriceBaseService } from './service.base';
+import { retryWrap } from '@seongeun/aggregator-util/lib/retry-wrapper';
+import { getBatchStaticAggregator } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
+import { Provider } from '@ethersproject/providers';
 import {
   flat,
   toSplitWithChunkSize,
   zip,
 } from '@seongeun/aggregator-util/lib/array';
-import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
-import { TaskHandlerService } from '../../handler/task-handler.service';
-import { TokenPriceTaskTemplate } from './token-price.task.template';
-import {
-  decodeFunctionResultData,
-  encodeFunction,
-  validResult,
-} from '@seongeun/aggregator-util/lib/encodeDecode';
-import { ERC20_ABI } from '@seongeun/aggregator-util/lib/erc20';
-import { getBatchStaticAggregator } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
-import { Provider } from '@ethersproject/providers';
-import { divideDecimals } from '@seongeun/aggregator-util/lib/decimals';
-import { ZERO } from '@seongeun/aggregator-util/lib/constant';
+import { QueryRunner } from 'typeorm';
 import {
   div,
   isZero,
   mul,
   toFixed,
 } from '@seongeun/aggregator-util/lib/bignumber';
-import { QueryRunner } from 'typeorm';
-import { TASK_EXCEPTION_LEVEL } from '../../exception/task-exception.constant';
+import { divideDecimals } from '@seongeun/aggregator-util/lib/decimals';
+import { TaskHandlerService } from '../../../handler/task-handler.service';
+import {
+  decodeFunctionResultData,
+  encodeFunction,
+  validResult,
+} from '@seongeun/aggregator-util/lib/encodeDecode';
+import { ERC20_ABI } from '@seongeun/aggregator-util/lib/erc20';
+import { ZERO } from '@seongeun/aggregator-util/lib/constant';
 
 interface ITokenExtendBestPair extends Token {
   bestPair: Token;
 }
 @Injectable()
-export abstract class TokenPriceMultiDexTaskTemplate extends TokenPriceTaskTemplate {
+export class TokenPriceMultiDexService extends TokenPriceBaseService {
   constructor(
-    public readonly id: string,
-    public readonly chainType: NETWORK_CHAIN_TYPE,
-    public readonly chainId: NETWORK_CHAIN_ID,
-    public readonly taskHandlerService: TaskHandlerService,
-    public readonly tokenService: TokenService,
     public readonly networkService: NetworkService,
+    public readonly tokenService: TokenService,
+    public readonly taskHandlerService: TaskHandlerService,
   ) {
-    super(
-      id,
-      chainType,
-      chainId,
-      taskHandlerService,
-      tokenService,
-      networkService,
-    );
+    super(networkService, tokenService, taskHandlerService);
   }
 
   /**
-   * 멀티 타입 네트워크 토큰 가져오기
+   * 체인링크 오라클을 사용하여 가격 정보를 가져오는 네트워크 토큰 가져오기
    * @returns 토큰
    */
-  async getTargetTotalTokens() {
+  async getTargetTotalTokens(network: Network): Promise<Token[]> {
     return this.tokenService.search({
-      networkId: this.network.id,
+      networkId: network.id,
       type: TOKEN_TYPE.MULTI,
     });
   }
 
   /**
-   * 인증받은 페어 고르기(체인링크를 통해 가격정보를 받아오는 토큰)
+   * 인증된 페어 고르기(체인링크를 통해 가격정보를 받아오는 토큰)
    * @param token verified oracle pair
    */
   getTokenWithBestPair(tokens: Token[]): ITokenExtendBestPair[] {
@@ -122,6 +111,11 @@ export abstract class TokenPriceMultiDexTaskTemplate extends TokenPriceTaskTempl
     }
   }
 
+  /**
+   * 가격 정보를 가져오기위한 필요 데이터 인코딩
+   * @param tokenWithBestPair 토큰과 안정적인 가격을 추적할 수 있는 페어
+   * @returns 인코딩 데이터
+   */
   getInfoDataEncoding(tokenWithBestPair: ITokenExtendBestPair[]): any[][] {
     return tokenWithBestPair.map((token: ITokenExtendBestPair) => {
       const { address, bestPair } = token;
@@ -133,22 +127,23 @@ export abstract class TokenPriceMultiDexTaskTemplate extends TokenPriceTaskTempl
     });
   }
 
-  async process(data: {
+  async trackingPrice(data: {
+    network: Network;
     tokens: Token[];
     today: string;
     maxHistoricalRecordDays: number;
   }): Promise<Record<string, any>> {
     try {
-      const { tokens, today, maxHistoricalRecordDays } = data;
+      const { network, tokens, today, maxHistoricalRecordDays } = data;
 
       const tokenWithBestPairZip = this.getTokenWithBestPair(tokens);
 
       const infoDataEncode = this.getInfoDataEncoding(tokenWithBestPairZip);
 
-      const infoDataBatchCall = await this.retryWrap(
+      const infoDataBatchCall = await retryWrap(
         getBatchStaticAggregator(
-          this.networkService.provider(this.network.chainKey) as Provider,
-          this.networkService.multiCallAddress(this.network.chainKey),
+          this.networkService.provider(network.chainKey) as Provider,
+          this.networkService.multiCallAddress(network.chainKey),
           flat(infoDataEncode),
         ),
       );
@@ -239,6 +234,7 @@ export abstract class TokenPriceMultiDexTaskTemplate extends TokenPriceTaskTempl
           await this.taskHandlerService.transaction.commitTransaction(
             queryRunner,
           );
+          return { success: true };
         } catch (e) {
           await this.taskHandlerService.transaction.rollbackTransaction(
             queryRunner,
@@ -258,8 +254,6 @@ export abstract class TokenPriceMultiDexTaskTemplate extends TokenPriceTaskTempl
           );
         }
       }
-
-      return { success: true };
     } catch (e) {
       throw Error(e);
     }

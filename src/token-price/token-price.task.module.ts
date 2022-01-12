@@ -5,21 +5,19 @@ import {
   TokenPriceModule,
 } from '@seongeun/aggregator-base/lib/module';
 import { TaskHandlerModule } from '../task-app/handler/task-handler.module';
-import { TokenPriceBinanceSmartChainChainLinkOracleTask } from './binance-smart-chain/token-price.binance-smart-chain.chain-link-oracle';
-import { TokenPriceBinanceSmartChainMultiDexTask } from './binance-smart-chain/token-price.binance-smart-chain.multi-dex.task';
-import { TokenPriceBinanceSmartChainSingleDexTask } from './binance-smart-chain/token-price.binance-smart-chain.single-dex.task';
+import { TokenPriceChainLinkService } from '../task-app/template/token-price/service/token-price.chain-link-oracle.service';
+import { TokenPriceMultiDexService } from '../task-app/template/token-price/service/token-price.multi-dex.service';
+import { TokenPriceSingleDexService } from '../task-app/template/token-price/service/token-price.single-dex.service';
+import { TokenPriceBinanceSmartChainAllTask } from './binance-smart-chain/token-price.binance-smart-chain.all.task';
 
 @Module({
   imports: [NetworkModule, TokenModule, TaskHandlerModule, TokenPriceModule],
   providers: [
-    TokenPriceBinanceSmartChainChainLinkOracleTask,
-    TokenPriceBinanceSmartChainMultiDexTask,
-    TokenPriceBinanceSmartChainSingleDexTask,
+    TokenPriceBinanceSmartChainAllTask,
+    TokenPriceChainLinkService,
+    TokenPriceMultiDexService,
+    TokenPriceSingleDexService,
   ],
-  exports: [
-    TokenPriceBinanceSmartChainChainLinkOracleTask,
-    TokenPriceBinanceSmartChainMultiDexTask,
-    TokenPriceBinanceSmartChainSingleDexTask,
-  ],
+  exports: [TokenPriceBinanceSmartChainAllTask],
 })
 export class TokenPriceTaskModule {}
