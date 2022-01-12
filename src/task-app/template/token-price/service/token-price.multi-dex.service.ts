@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import BigNumberJs from 'bignumber.js';
 import {
   TOKEN_PRICE_ORACLE_TYPE,
   TOKEN_TYPE,
@@ -127,12 +128,64 @@ export class TokenPriceMultiDexService extends TokenPriceBaseService {
     });
   }
 
+  /**
+   * 가격 산출을 위한 필요 데이터 디코딩
+   * @param batchCallMap 가격 산출을 위한 필요 데이터 요청 결과 묶음
+   * @param extraData 관련 토큰 데시멸
+   * @returns 디코딩 데이터
+   */
+  getInfoDataDecoding(
+    batchCallMap: any[],
+    extraData: { multiTokenDecimals: number; bestPairTokenDecimals: number },
+  ): { multiTokenSupply: BigNumberJs; bestPairBalance: BigNumberJs } {
+    const [
+      {
+        success: multiTokenTotalSupplySuccess,
+        returnData: multiTokenTotalSupplyData,
+      },
+      {
+        success: bestPairTokenBalanceSuccess,
+        returnData: bestPairTokenBalanceData,
+      },
+    ] = batchCallMap;
+
+    const multiTokenSupply = validResult(
+      multiTokenTotalSupplySuccess,
+      multiTokenTotalSupplyData,
+    )
+      ? divideDecimals(
+          decodeFunctionResultData(
+            ERC20_ABI,
+            'totalSupply',
+            multiTokenTotalSupplyData,
+          ),
+          extraData.multiTokenDecimals,
+        )
+      : ZERO;
+
+    const bestPairBalance = validResult(
+      bestPairTokenBalanceSuccess,
+      bestPairTokenBalanceData,
+    )
+      ? divideDecimals(
+          decodeFunctionResultData(
+            ERC20_ABI,
+            'balanceOf',
+            bestPairTokenBalanceData,
+          ),
+          extraData.bestPairTokenDecimals,
+        )
+      : ZERO;
+
+    return { multiTokenSupply, bestPairBalance };
+  }
+
   async trackingPrice(data: {
     network: Network;
     tokens: Token[];
     today: string;
     maxHistoricalRecordDays: number;
-  }): Promise<Record<string, any>> {
+  }): Promise<void> {
     try {
       const { network, tokens, today, maxHistoricalRecordDays } = data;
 
@@ -164,44 +217,11 @@ export class TokenPriceMultiDexService extends TokenPriceBaseService {
             tokenPrice: { value: bestPairValue },
           } = bestPair;
 
-          const [
-            {
-              success: multiTokenTotalSupplySuccess,
-              returnData: multiTokenTotalSupplyData,
-            },
-            {
-              success: bestPairTokenBalanceSuccess,
-              returnData: bestPairTokenBalanceData,
-            },
-          ] = batchCallMap;
-
-          const multiTokenSupply = validResult(
-            multiTokenTotalSupplySuccess,
-            multiTokenTotalSupplyData,
-          )
-            ? divideDecimals(
-                decodeFunctionResultData(
-                  ERC20_ABI,
-                  'totalSupply',
-                  multiTokenTotalSupplyData,
-                ),
-                decimals,
-              )
-            : ZERO;
-
-          const bestPairBalance = validResult(
-            bestPairTokenBalanceSuccess,
-            bestPairTokenBalanceData,
-          )
-            ? divideDecimals(
-                decodeFunctionResultData(
-                  ERC20_ABI,
-                  'balanceOf',
-                  bestPairTokenBalanceData,
-                ),
-                bestPairDecimals,
-              )
-            : ZERO;
+          const { bestPairBalance, multiTokenSupply } =
+            this.getInfoDataDecoding(batchCallMap, {
+              multiTokenDecimals: decimals,
+              bestPairTokenDecimals: bestPairDecimals,
+            });
 
           const bestPairTotalValue = mul(bestPairBalance, bestPairValue);
           const multiTokenTotalValue = mul(bestPairTotalValue, 2);
@@ -234,7 +254,6 @@ export class TokenPriceMultiDexService extends TokenPriceBaseService {
           await this.taskHandlerService.transaction.commitTransaction(
             queryRunner,
           );
-          return { success: true };
         } catch (e) {
           await this.taskHandlerService.transaction.rollbackTransaction(
             queryRunner,

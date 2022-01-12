@@ -33,6 +33,7 @@ import {
 } from '@seongeun/aggregator-util/lib/encodeDecode';
 import { ERC20_ABI } from '@seongeun/aggregator-util/lib/erc20';
 import { ZERO } from '@seongeun/aggregator-util/lib/constant';
+import BigNumberJs from 'bignumber.js';
 
 interface ITokenExtendBestTVLPairWithOther extends Token {
   bestTVLPair: Token;
@@ -137,9 +138,9 @@ export class TokenPriceSingleDexService extends TokenPriceBaseService {
   }
 
   /**
-   * 
+   * 가격 산출을 위한 필요 데이터 인코딩
    * @param tokenWithBestTVLPairWithOther  토큰과 가장 높은 TVL을 가진 페어
-   * @returns 
+   * @returns 인코딩 데이터
    */
   getInfoDataEncoding(
     tokenWithBestTVLPairWithOther: ITokenExtendBestTVLPairWithOther[],
@@ -164,13 +165,22 @@ export class TokenPriceSingleDexService extends TokenPriceBaseService {
     );
   }
 
+  /**
+   * 가격 산출을 위한 필요 데이터 디코딩
+   * @param batchCallMap 가격 산출을 위한 필요 데이터 요청 결과 묶음
+   * @param params 관련 토큰 데시멀
+   * @returns 디코딩 데이터
+   */
   getInfoDataDecoding(
     batchCallMap: any[],
-    decimals: {
+    extraData: {
       targetTokenDecimals: number;
       otherTokenDecimals: number;
     },
-  ) {
+  ): {
+    targetTokenBalanceInPair: BigNumberJs;
+    otherTokenBalanceInPair: BigNumberJs;
+  } {
     const [
       {
         success: targetTokenBalanceInPairSuccess,
@@ -192,7 +202,7 @@ export class TokenPriceSingleDexService extends TokenPriceBaseService {
             'balanceOf',
             targetTokenBalanceInPairData,
           ),
-          decimals.targetTokenDecimals,
+          extraData.targetTokenDecimals,
         )
       : ZERO;
 
@@ -206,7 +216,7 @@ export class TokenPriceSingleDexService extends TokenPriceBaseService {
             'balanceOf',
             otherTokenBalanceInPairData,
           ),
-          decimals.otherTokenDecimals,
+          extraData.otherTokenDecimals,
         )
       : ZERO;
 
@@ -218,7 +228,7 @@ export class TokenPriceSingleDexService extends TokenPriceBaseService {
     tokens: Token[];
     today: string;
     maxHistoricalRecordDays: number;
-  }): Promise<Record<string, any>> {
+  }): Promise<void> {
     try {
       const { network, tokens, today, maxHistoricalRecordDays } = data;
 
@@ -296,7 +306,6 @@ export class TokenPriceSingleDexService extends TokenPriceBaseService {
           await this.taskHandlerService.transaction.commitTransaction(
             queryRunner,
           );
-          return {};
         } catch (e) {
           await this.taskHandlerService.transaction.rollbackTransaction(
             queryRunner,

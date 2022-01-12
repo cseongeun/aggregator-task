@@ -79,7 +79,7 @@ export class TokenPriceChainLinkService extends TokenPriceBaseService {
     tokens: Token[];
     today: string;
     maxHistoricalRecordDays: number;
-  }): Promise<Record<string, any>> {
+  }): Promise<void> {
     try {
       const { network, tokens, today, maxHistoricalRecordDays } = data;
 
@@ -138,8 +138,6 @@ export class TokenPriceChainLinkService extends TokenPriceBaseService {
           );
         }
       }
-
-      return {};
     } catch (e) {
       throw Error(e);
     }

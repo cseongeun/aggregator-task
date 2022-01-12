@@ -27,7 +27,7 @@ export abstract class TokenPriceBaseService {
     tokens: Token[];
     today: string;
     maxHistoricalRecordDays: number;
-  }): Promise<Record<string, any>>;
+  }): Promise<void>;
 
   loggingForm(): { total: number; success: number; warn: number } {
     return {

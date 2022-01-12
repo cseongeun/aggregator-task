@@ -68,7 +68,11 @@ export abstract class TokenPriceTaskTemplate extends TaskBase {
     service: TokenPriceBaseService;
   }[];
 
-  // token price 추적 서비스 시작
+  /**
+   * 
+   * @param data {}
+   * @returns 
+   */
   async process(data: {
     targetService: TokenPriceBaseService;
     chunkSize: number;
