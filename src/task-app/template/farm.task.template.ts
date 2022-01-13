@@ -14,7 +14,7 @@ import { get } from '@seongeun/aggregator-util/lib/object';
 @Injectable()
 export abstract class FarmTaskTemplate extends TaskBase {
   constructor(
-    public id: string,
+    public readonly id: string,
     public readonly taskHandlerService: TaskHandlerService,
     public readonly farmService: FarmService,
     public readonly tokenService: TokenService,
@@ -111,7 +111,7 @@ export abstract class FarmTaskTemplate extends TaskBase {
 
   /**
    * 메인
-   * @returns 로그 
+   * @returns 로그
    */
   async run(): Promise<Record<string, any>> {
     const log = this.loggingForm();

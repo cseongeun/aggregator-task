@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import axios from 'axios';
-import { getConnection, QueryRunner } from 'typeorm';
+import { QueryRunner } from 'typeorm';
 import { NFTokenService } from '@seongeun/aggregator-base/lib/service';
 import { BigNumber } from '@ethersproject/bignumber';
 import { get } from '@seongeun/aggregator-util/lib/object';
@@ -21,7 +21,7 @@ import { TASK_EXCEPTION_CODE } from '../exception/task-exception.constant';
 @Injectable()
 export abstract class NFTTaskTemplate extends TaskBase {
   constructor(
-    public id: string,
+    public readonly id: string,
     public readonly taskHandlerService: TaskHandlerService,
     public readonly nfTokenService: NFTokenService,
     public readonly context,

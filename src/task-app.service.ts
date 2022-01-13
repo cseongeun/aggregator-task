@@ -3,7 +3,6 @@ import { Task } from '@seongeun/aggregator-base/lib/entity';
 import { TaskService } from '@seongeun/aggregator-base/lib/service';
 import { UpdateResult } from 'typeorm';
 import { TaskHandlerService } from './task-app/handler/task-handler.service';
-import { TASK_MESSAGE } from './task-app/message/task-message.constant';
 
 @Injectable()
 export class TaskAppService {
