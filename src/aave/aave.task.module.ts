@@ -7,10 +7,19 @@ import { AaveSchedulerModule } from '@seongeun/aggregator-defi-protocol/lib/aave
 import { AaveAvalancheLendingTask } from './avalanche/aave.avalanche.lending.task';
 import { AavePolygonLendingTask } from './polygon/aave.polygon.lending.task';
 import { TaskHandlerModule } from '../task-app/handler/task-handler.module';
+import { AaveAvalancheLendingEventTask } from './avalanche/aave.avalanche.lending.event.task';
 
 @Module({
   imports: [AaveSchedulerModule, TokenModule, LendingModule, TaskHandlerModule],
-  providers: [AavePolygonLendingTask, AaveAvalancheLendingTask],
-  exports: [AavePolygonLendingTask, AaveAvalancheLendingTask],
+  providers: [
+    AavePolygonLendingTask,
+    AaveAvalancheLendingTask,
+    AaveAvalancheLendingEventTask,
+  ],
+  exports: [
+    AavePolygonLendingTask,
+    AaveAvalancheLendingTask,
+    AaveAvalancheLendingEventTask,
+  ],
 })
 export class AaveTaskModule {}
