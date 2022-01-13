@@ -609,7 +609,7 @@ export abstract class DexTaskTemplate extends TaskBase {
 
   /**
    * 메인
-   * @returns 로그 
+   * @returns 로그
    */
   async run(): Promise<Record<string, any>> {
     const log = this.loggingForm();

@@ -16,6 +16,7 @@ import {
 } from '@seongeun/aggregator-util/lib/bignumber';
 import { TaskHandlerService } from '../handler/task-handler.service';
 import { TaskBase } from '../../task.base';
+import { TASK_EXCEPTION_CODE } from '../exception/task-exception.constant';
 
 @Injectable()
 export abstract class NFTTaskTemplate extends TaskBase {
@@ -71,7 +72,13 @@ export abstract class NFTTaskTemplate extends TaskBase {
    */
   async getImageOrAnimationPath(): Promise<string> {
     const task = await this.taskHandlerService.getTask(this.taskId);
-    return get(task.config, 'path');
+    const path = get(task.config, 'path');
+
+    if (isUndefined(path)) {
+      throw Error(TASK_EXCEPTION_CODE.ERR2001);
+    }
+
+    return path;
   }
 
   /**
@@ -110,7 +117,7 @@ export abstract class NFTTaskTemplate extends TaskBase {
 
         let requestUri = data.tokenUri;
 
-        if (tokenURI.startsWith('ipfs:://')) {
+        if (tokenURI.startsWith('ipfs://')) {
           data.uriType = NF_TOKEN_URI_TYPE.IPFS;
           const hash = tokenURI.replace('ipfs://', '');
           requestUri = `https://ipfs.io/ipfs/${hash}`;
@@ -166,7 +173,7 @@ export abstract class NFTTaskTemplate extends TaskBase {
 
   /**
    * 메인
-   * @returns 로그 
+   * @returns 로그
    */
   async run(): Promise<Record<string, any>> {
     const log = this.loggingForm();

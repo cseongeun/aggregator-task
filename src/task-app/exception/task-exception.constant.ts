@@ -18,5 +18,6 @@ export enum TASK_EXCEPTION_CODE {
   ERR1011 = 'underlying network changed', // avalanche node<https://api.avax.network/ext/bc/C/rpc>
 
   // Custom Error
-  ERR2000 = 'chainlink oracle type requires "feed" in oracle data', // token-price chain Link oracle
+  ERR2000 = 'chain link oracle type requires "feed" in oracle data', // token-price chain Link oracle
+  ERR2001 = 'nft task requires "path" in task config', // nft image or animation path
 }

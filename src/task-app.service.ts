@@ -3,6 +3,7 @@ import { Task } from '@seongeun/aggregator-base/lib/entity';
 import { TaskService } from '@seongeun/aggregator-base/lib/service';
 import { UpdateResult } from 'typeorm';
 import { TaskHandlerService } from './task-app/handler/task-handler.service';
+import { TASK_MESSAGE } from './task-app/message/task-message.constant';
 
 @Injectable()
 export class TaskAppService {
@@ -28,19 +29,6 @@ export class TaskAppService {
     );
   }
 
-  // 작업 중단 상태로 업데이트
-  async stopTask(id: string): Promise<UpdateResult> {
-    return this.taskService.repository.updateOneBy(
-      {
-        id,
-      },
-      {
-        active: false,
-        status: false,
-      },
-    );
-  }
-
   /**
    * 순차적으로 모든 작업 시작
    */
@@ -50,23 +38,23 @@ export class TaskAppService {
     const tasks = await this.getAllTasks();
 
     tasks.forEach(async ({ id, status }: { id: string; status: boolean }) => {
-      const isImplementation = this.taskHandler.manager.isRegisteredTask(id);
+      const isImplementation = this.taskHandler.manager.isRegisteredTaskJob(id);
 
       // DB에 작업 등록이 되어있지만 작업 스크립트가 구현되지않은 경우.
       if (!isImplementation) {
-        await this.stopTask(id);
+        await this.taskHandler.notFoundTask(id);
 
         return;
       }
 
       if (status) {
         // 작업 및 작업 리스너 시작
-        await this.taskHandler.manager.startTask(id);
-        await this.taskHandler.manager.startTaskListener(id);
+        await this.taskHandler.manager.startTaskJob(id);
+        await this.taskHandler.manager.startTaskListenerJob(id);
         await this.taskHandler.handleInitialStart(id);
       } else {
         // 작업 리스너만 시작
-        await this.taskHandler.manager.startTaskListener(id);
+        await this.taskHandler.manager.startTaskListenerJob(id);
       }
     });
   }

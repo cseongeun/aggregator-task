@@ -52,7 +52,7 @@ export abstract class TaskBase implements OnModuleInit {
     });
 
     // 작업 및 작업 리스너 등록
-    this.taskHandlerService.manager.addTask(
+    this.taskHandlerService.manager.addTaskJob(
       this.taskId,
       this.taskJob,
       this.taskListenerJob,
@@ -109,31 +109,5 @@ export abstract class TaskBase implements OnModuleInit {
     } catch (e) {
       await this.taskHandlerService.handleListenerError(this.taskId, e);
     }
-  }
-
-  /**
-   * 노드 데이터 요청 재시도
-   * @param promise 노드 데이터요청
-   * @param maxRetry 최대 재시도 횟수
-   * @param retry 현재 시도 횟수
-   * @returns 결과
-   */
-  async retryWrap(promise: any, maxRetry = 2, retry = 0) {
-    return promise.then(
-      (data) => {
-        return data;
-      },
-      (err) => {
-        const wrappedError = this.taskHandlerService.wrappedError(err);
-
-        if (wrappedError.level === TASK_EXCEPTION_LEVEL.NORMAL) {
-          if (retry < maxRetry) {
-            this.retryWrap(promise, maxRetry, (retry += 1));
-          }
-        }
-
-        throw Error(err);
-      },
-    );
   }
 }

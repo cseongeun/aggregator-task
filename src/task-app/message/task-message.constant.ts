@@ -10,4 +10,6 @@ export enum TASK_MESSAGE {
   CHANGE_CRON_MANUALLY = 'task changed cron manually',
 
   LISTENER_EXCEPTION = 'task listener exception',
+
+  NOT_FOUND_TASK_SCRIPT = 'not found task script',
 }

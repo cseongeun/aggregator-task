@@ -14,7 +14,6 @@ import { get } from '@seongeun/aggregator-util/lib/object';
 import { TaskBase } from '../../task.base';
 import { TaskHandlerService } from '../handler/task-handler.service';
 import { Provider } from '@ethersproject/providers';
-import { retryWrap } from '@seongeun/aggregator-util/lib/retry-wrapper';
 import { TASK_EXCEPTION_LEVEL } from '../exception/task-exception.constant';
 import { divideDecimals } from '@seongeun/aggregator-util/lib/decimals';
 import {
@@ -41,7 +40,11 @@ export abstract class TokenSupplyTaskTemplate extends TaskBase {
 
   async getNetworkTokens(): Promise<Token[]> {
     return this.tokenService.repository.findAllBy({
-      network: this.network,
+      network: {
+        chainType: this.chainType,
+        chainId: this.chainId,
+        status: true,
+      },
       status: true,
     });
   }
@@ -75,12 +78,10 @@ export abstract class TokenSupplyTaskTemplate extends TaskBase {
   async getTokenWithTotalSupplyZip(tokens: Token[]) {
     const tokenAddresses = tokens.map((token: Token) => token.address);
 
-    const tokenTotalSupplies = await retryWrap(
-      getBatchERC20TotalSupply(
-        this.networkService.provider(this.network.chainKey) as Provider,
-        this.networkService.multiCallAddress(this.network.chainKey),
-        tokenAddresses,
-      ),
+    const tokenTotalSupplies = await getBatchERC20TotalSupply(
+      this.networkService.provider(this.network.chainKey) as Provider,
+      this.networkService.multiCallAddress(this.network.chainKey),
+      tokenAddresses,
     );
 
     return zip(tokens, tokenTotalSupplies);
@@ -184,7 +185,7 @@ export abstract class TokenSupplyTaskTemplate extends TaskBase {
 
       return log;
     } catch (e) {
-      throw Error();
+      throw Error(e);
     }
   }
 }

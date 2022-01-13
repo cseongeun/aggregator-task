@@ -11,7 +11,6 @@ import {
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
 import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
-import { retryWrap } from '@seongeun/aggregator-util/lib/retry-wrapper';
 import { getBatchStaticAggregator } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
 import { Provider } from '@ethersproject/providers';
 import {
@@ -193,12 +192,10 @@ export class TokenPriceMultiDexService extends TokenPriceBaseService {
 
       const infoDataEncode = this.getInfoDataEncoding(tokenWithBestPairZip);
 
-      const infoDataBatchCall = await retryWrap(
-        getBatchStaticAggregator(
-          this.networkService.provider(network.chainKey) as Provider,
-          this.networkService.multiCallAddress(network.chainKey),
-          flat(infoDataEncode),
-        ),
+      const infoDataBatchCall = await getBatchStaticAggregator(
+        this.networkService.provider(network.chainKey) as Provider,
+        this.networkService.multiCallAddress(network.chainKey),
+        flat(infoDataEncode),
       );
 
       const infoDataBatchCallMap = toSplitWithChunkSize(infoDataBatchCall, 2);

@@ -10,7 +10,6 @@ import {
 } from '@seongeun/aggregator-base/lib/service';
 import { get } from '@seongeun/aggregator-util/lib/object';
 import { isUndefined } from '@seongeun/aggregator-util/lib/type';
-import { retryWrap } from '@seongeun/aggregator-util/lib/retry-wrapper';
 import { getBatchChainLinkData } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
 import { Provider } from '@ethersproject/providers';
 import { zip } from '@seongeun/aggregator-util/lib/array';
@@ -55,7 +54,6 @@ export class TokenPriceChainLinkService extends TokenPriceBaseService {
     const feedAddresses = tokens.map(({ tokenPrice: { oracleData } }) => {
       const feed = get(oracleData, 'feed');
 
-      // console.log(tokenPrice);
       if (isUndefined(feed)) {
         throw Error(TASK_EXCEPTION_CODE.ERR2000);
       }
@@ -63,12 +61,10 @@ export class TokenPriceChainLinkService extends TokenPriceBaseService {
       return feed;
     });
 
-    const chainLinkBatchCall = await retryWrap(
-      getBatchChainLinkData(
-        this.networkService.provider(network.chainKey) as Provider,
-        this.networkService.multiCallAddress(network.chainKey),
-        feedAddresses,
-      ),
+    const chainLinkBatchCall = await getBatchChainLinkData(
+      this.networkService.provider(network.chainKey) as Provider,
+      this.networkService.multiCallAddress(network.chainKey),
+      feedAddresses,
     );
 
     return chainLinkBatchCall;

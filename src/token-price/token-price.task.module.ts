@@ -13,6 +13,7 @@ import { TokenPriceSingleDexService } from '../task-app/template/token-price/ser
 import { TokenPriceAvalancheAllTask } from './avalanche/token-price.avalanche.all.task';
 import { TokenPriceBinanceSmartChainAllTask } from './binance-smart-chain/token-price.binance-smart-chain.all.task';
 import { TokenPriceFantomAllTask } from './fantom/token-price.fantom.all.task';
+import { TokenPriceHecoAllTask } from './heco/token-price.heco.all.task';
 import { TokenPriceKlaytnAllTask } from './klaytn/token-price.klaytn.all.task';
 import { TokenPricePolygonAllTask } from './polygon/token-price.polygon.all.task';
 import { TokenPriceXdaiAllTask } from './xdai/token-price.xdai.all.task';
@@ -26,6 +27,7 @@ import { TokenPriceXdaiAllTask } from './xdai/token-price.xdai.all.task';
 
     TokenPriceBinanceSmartChainAllTask,
     TokenPriceAvalancheAllTask,
+    TokenPriceHecoAllTask,
     TokenPriceFantomAllTask,
     TokenPriceKlaytnAllTask,
     TokenPricePolygonAllTask,
@@ -34,6 +36,7 @@ import { TokenPriceXdaiAllTask } from './xdai/token-price.xdai.all.task';
   exports: [
     TokenPriceBinanceSmartChainAllTask,
     TokenPriceAvalancheAllTask,
+    TokenPriceHecoAllTask,
     TokenPriceFantomAllTask,
     TokenPriceKlaytnAllTask,
     TokenPricePolygonAllTask,

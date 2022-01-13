@@ -138,6 +138,7 @@ export class TaskHandlerService {
       if (isCronString(nowCron)) {
         await this._handleChangeCron(taskId, nowCron);
       } else {
+        // TODO: 로직 추가
         console.log('invalid cron');
       }
     }
@@ -156,11 +157,24 @@ export class TaskHandlerService {
   }
 
   /**
+   * 등록된 작업이 확인되지않을 경우 핸들링
+   * @param taskId 작업 아이디
+   */
+  async notFoundTask(taskId: string): Promise<void> {
+    await this.taskService.repository.updateOneBy(
+      { id: taskId },
+      { active: false, status: false },
+    );
+
+    this.logger.error(taskId, { message: TASK_MESSAGE.NOT_FOUND_TASK_SCRIPT });
+  }
+
+  /**
    * 작업 수동 재 실행 시 핸들링
    * @param taskId 작업 아이디
    */
   private async _handleRestart(taskId: string): Promise<void> {
-    await this.manager.startTask(taskId);
+    await this.manager.startTaskJob(taskId);
 
     await this.logger.log(taskId, {
       message: TASK_MESSAGE.RESTART_MANUALLY,
@@ -175,7 +189,7 @@ export class TaskHandlerService {
     taskId: string,
     message?: TASK_MESSAGE,
   ): Promise<void> {
-    await this.manager.stopTask(taskId);
+    await this.manager.stopTaskJob(taskId);
 
     await this.logger.log(taskId, {
       message: message ? message : TASK_MESSAGE.STOP_MANUALLY,
@@ -187,7 +201,7 @@ export class TaskHandlerService {
    * @param taskId
    */
   private async _handleChangeCron(taskId: string, cron: string): Promise<void> {
-    await this.manager.updateTaskCron(taskId, cron);
+    await this.manager.updateTaskJobCron(taskId, cron);
 
     await this.logger.log(taskId, {
       message: TASK_MESSAGE.CHANGE_CRON_MANUALLY,
@@ -229,7 +243,7 @@ export class TaskHandlerService {
     });
 
     // 작업 중단 (리스너는 무중단)
-    this.manager.stopTask(taskId);
+    this.manager.stopTaskJob(taskId);
 
     // 중단 상태로 변경
     await this.taskService.repository.update(
@@ -320,13 +334,22 @@ export class TaskHandlerService {
       );
     }
 
-    // chainlink oracle type requires "feed" data
+    // chain-link oracle type requires "feed" data
     if (e.message?.match(TASK_EXCEPTION_CODE.ERR2000)) {
       return new Exception(
         TASK_EXCEPTION_CODE.ERR2000,
         TASK_EXCEPTION_LEVEL.PANIC,
       );
     }
+
+    // nft task requires "path" in task config
+    if (e.message?.match(TASK_EXCEPTION_CODE.ERR2001)) {
+      return new Exception(
+        TASK_EXCEPTION_CODE.ERR2001,
+        TASK_EXCEPTION_LEVEL.PANIC,
+      );
+    }
+
     // unknown exception
     return new Exception(
       TASK_EXCEPTION_CODE.ERR1001,
