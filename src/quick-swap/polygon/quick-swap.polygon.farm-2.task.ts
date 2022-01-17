@@ -24,7 +24,6 @@ import {
   ONE_YEAR_DAYS,
   ZERO,
 } from '@seongeun/aggregator-util/lib/constant';
-import { getSafeERC20BalanceOf } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
 import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
 import { TASK_EXCEPTION_LEVEL } from '../../task-app/exception/task-exception.constant';
 import { getFarmAssetName } from '@seongeun/aggregator-util/lib/naming';

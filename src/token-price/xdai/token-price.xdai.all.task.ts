@@ -8,7 +8,6 @@ import {
   NetworkService,
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
-import { getToday } from '@seongeun/aggregator-util/lib/time';
 import { TASK_ID } from '../../task-app.constant';
 import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
 import { TokenPriceBaseService } from '../../task-app/template/token-price/service/service.base';
