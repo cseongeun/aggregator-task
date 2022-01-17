@@ -137,7 +137,7 @@ export class BakerySwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
         assets: getFarmAssetName([stakeToken], [this.getRewardToken()]),
         stakeTokens: [stakeToken],
         rewardTokens: [this.getRewardToken()],
-        data: JSON.stringify({ lpToken: farmInfo.lpToken }),
+        data: { lpToken: farmInfo.lpToken },
       },
       manager,
     );
@@ -159,7 +159,6 @@ export class BakerySwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
           name: this.getFarmDetail().name,
           address: this.getFarmDetail().address,
           pid: farmInfo.pid,
-          data: JSON.stringify({ lpToken: farmInfo.lpToken }),
         },
         manager,
       );
@@ -207,6 +206,7 @@ export class BakerySwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
         liquidityAmount: liquidityAmount.toString(),
         liquidityValue: liquidityValue.toString(),
         apr: farmApr.toString(),
+        data: { lpToken: farmInfo.lpToken },
         status: true,
       },
       manager,

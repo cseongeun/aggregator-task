@@ -169,7 +169,7 @@ export class ApeSwapPolygonFarmTask extends FarmTaskTemplate {
         assets: getFarmAssetName([stakeToken], rewardTokens),
         stakeTokens: [stakeToken],
         rewardTokens: rewardTokens,
-        data: JSON.stringify({ rewarder: farmInfo.rewarder }),
+        data: { rewarder: farmInfo.rewarder },
       },
       manager,
     );
@@ -245,7 +245,7 @@ export class ApeSwapPolygonFarmTask extends FarmTaskTemplate {
         liquidityAmount: liquidityAmount.toString(),
         liquidityValue: liquidityValue.toString(),
         apr: farmApr.toString(),
-        data: JSON.stringify({ rewarder: farmInfo.rewarder }),
+        data: { rewarder: farmInfo.rewarder },
         status: true,
       },
       manager,
