@@ -3,10 +3,10 @@ import {
   FarmService,
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
-import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
-import { FarmTaskTemplate } from '../../task-app/template/farm.task.template';
+import { TaskHandlerService } from '../task-app/handler/task-handler.service';
+import { FarmTaskTemplate } from '../task-app/template/farm.task.template';
 import { WaultSwapBinanceSmartChainSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/wault-swap/binance-smart-chain/wault-swap.binance-smart-chain.scheduler.service';
-import { TASK_ID } from '../../task-app.constant';
+import { TASK_ID } from '../task-app.constant';
 import { Token } from '@seongeun/aggregator-base/lib/entity';
 import { BigNumber } from 'ethers';
 import { EntityManager, QueryRunner } from 'typeorm';
@@ -21,7 +21,7 @@ import {
   ONE_YEAR_DAYS,
   ZERO,
 } from '@seongeun/aggregator-util/lib/constant';
-import { TASK_EXCEPTION_LEVEL } from '../../task-app/exception/task-exception.constant';
+import { TASK_EXCEPTION_LEVEL } from '../task-app/exception/task-exception.constant';
 
 @Injectable()
 export class WaultSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {

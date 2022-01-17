@@ -46,14 +46,14 @@ export class TokenPriceBinanceSmartChainAllTask extends TokenPriceTaskTemplate {
   }[] {
     return [
       { label: 'chainLink', service: this.tokenPriceChainLinkService },
-      {
-        label: 'multiDex',
-        service: this.tokenPriceMultiDexService,
-      },
-      {
-        label: 'singleDex',
-        service: this.tokenPriceSingleDexService,
-      },
+      // {
+      //   label: 'multiDex',
+      //   service: this.tokenPriceMultiDexService,
+      // },
+      // {
+      //   label: 'singleDex',
+      //   service: this.tokenPriceSingleDexService,
+      // },
     ];
   }
 }

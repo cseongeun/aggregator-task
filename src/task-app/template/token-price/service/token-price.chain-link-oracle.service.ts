@@ -52,7 +52,7 @@ export class TokenPriceChainLinkService extends TokenPriceBaseService {
    */
   async getChainLinkData(network: Network, tokens: Token[]): Promise<any> {
     const feedAddresses = tokens.map(({ tokenPrice: { oracleData } }) => {
-      const feed = get(oracleData, 'feed');
+      const feed = get(JSON.parse(oracleData), 'feed');
 
       if (isUndefined(feed)) {
         throw Error(TASK_EXCEPTION_CODE.ERR2000);

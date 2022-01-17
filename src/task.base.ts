@@ -4,7 +4,6 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { getElapsedTime } from '@seongeun/aggregator-util/lib/time';
 import { TaskHandlerService } from './task-app/handler/task-handler.service';
 import { Task } from '@seongeun/aggregator-base/lib/entity';
-import { TASK_EXCEPTION_LEVEL } from './task-app/exception/task-exception.constant';
 
 @Injectable()
 export abstract class TaskBase implements OnModuleInit {
