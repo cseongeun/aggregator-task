@@ -14,12 +14,6 @@ export abstract class TaskBase implements OnModuleInit {
   // 작업 실행  (ex,Loop 생성)
   abstract run(): Promise<Record<string, any>>;
 
-  // 작업 초기 반복
-  private initTaskJobCron = CronExpression.EVERY_5_SECONDS;
-  // 작업 리스너 반복
-  private initTaskListenerJobCron = CronExpression.EVERY_5_SECONDS;
-  // private initTaskListenerJobCron = CronExpression.EVERY_MINUTE;
-
   // 현재 작업 상태
   protected task: Task;
   // 작업 아이디
@@ -32,6 +26,11 @@ export abstract class TaskBase implements OnModuleInit {
   protected isTaskJobWorking = false;
   // 작업 리스너 진행 여부
   protected isTaskListenerJobWorking = false;
+
+  // 작업 초기 반복
+  private initTaskJobCron = CronExpression.EVERY_5_SECONDS;
+  // 작업 리스너 반복
+  private initTaskListenerJobCron = CronExpression.EVERY_MINUTE;
 
   constructor(
     public readonly id: string,
