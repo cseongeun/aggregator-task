@@ -19,6 +19,7 @@ import { VenusTaskModule } from './venus/venus.task.module';
 import { WaultSwapTaskModule } from './wault-swap/wault-swap.task.module';
 import { TokenPriceTaskModule } from './token-price/token-price.task.module';
 import { TokenSupplyTaskModule } from './token-supply/token-supply.task.module';
+import { EventInteractionTaskModule } from './event-interaction/event-interaction.task.module';
 
 @Module({
   imports: [
@@ -55,6 +56,8 @@ import { TokenSupplyTaskModule } from './token-supply/token-supply.task.module';
     TokenPriceTaskModule,
 
     TokenSupplyTaskModule,
+
+    EventInteractionTaskModule,
   ],
   providers: [AppService],
   exports: [AppService],

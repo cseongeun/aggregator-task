@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { WinstonLoggerService } from '@seongeun/aggregator-logger';
+import { WinstonLoggerService } from '@seongeun/aggregator-common';
 import { COLOR } from '@seongeun/aggregator-util/lib/color';
 
 @Injectable()

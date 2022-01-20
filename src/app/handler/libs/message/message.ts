@@ -1,4 +1,4 @@
-export enum TASK_MESSAGE {
+export enum MESSAGE {
   SUCCESS = 'task success',
   WARN = 'task warn',
   ERROR = 'task panic',

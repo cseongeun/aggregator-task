@@ -10,7 +10,7 @@ import {
 import { Exception } from '../exception/exception.dto';
 import { Logger } from './libs/logger/logger';
 import { Manager } from './libs/manager/manager';
-import { TASK_MESSAGE } from './libs/message/message.constant';
+import { MESSAGE } from './libs/message/message';
 import { Transaction } from './libs/transaction/transaction';
 
 @Injectable()
@@ -50,7 +50,7 @@ export class HandlerService {
 
   async handleInitialStart(taskId: string): Promise<void> {
     await this.logger.log(taskId, {
-      message: TASK_MESSAGE.INITIAL_START,
+      message: MESSAGE.INITIAL_START,
     });
   }
 
@@ -67,7 +67,7 @@ export class HandlerService {
     },
   ): Promise<void> {
     this.logger.log(taskId, {
-      message: TASK_MESSAGE.SUCCESS,
+      message: MESSAGE.SUCCESS,
       work: params?.result,
       elapsedTime: params.elapsedTime,
     });
@@ -129,7 +129,7 @@ export class HandlerService {
       if (nowStatus) {
         await this._handleRestart(taskId);
       } else {
-        await this._handleStop(taskId, TASK_MESSAGE.PANIC_STOP);
+        await this._handleStop(taskId, MESSAGE.PANIC_STOP);
       }
     }
 
@@ -151,7 +151,7 @@ export class HandlerService {
    */
   async handleListenerError(taskId: string, e: Error): Promise<void> {
     await this.logger.error(taskId, {
-      message: TASK_MESSAGE.LISTENER_EXCEPTION,
+      message: MESSAGE.LISTENER_EXCEPTION,
       stack: e.stack,
     });
   }
@@ -166,7 +166,7 @@ export class HandlerService {
       { active: false, status: false },
     );
 
-    this.logger.error(taskId, { message: TASK_MESSAGE.NOT_FOUND_TASK_SCRIPT });
+    this.logger.error(taskId, { message: MESSAGE.NOT_FOUND_TASK_SCRIPT });
   }
 
   /**
@@ -177,7 +177,7 @@ export class HandlerService {
     await this.manager.startTaskJob(taskId);
 
     await this.logger.log(taskId, {
-      message: TASK_MESSAGE.RESTART_MANUALLY,
+      message: MESSAGE.RESTART_MANUALLY,
     });
   }
 
@@ -185,14 +185,11 @@ export class HandlerService {
    * 작업 수동 중단 시 핸들링
    * @param taskId 작업 아이디
    */
-  private async _handleStop(
-    taskId: string,
-    message?: TASK_MESSAGE,
-  ): Promise<void> {
+  private async _handleStop(taskId: string, message?: MESSAGE): Promise<void> {
     await this.manager.stopTaskJob(taskId);
 
     await this.logger.log(taskId, {
-      message: message ? message : TASK_MESSAGE.STOP_MANUALLY,
+      message: message ? message : MESSAGE.STOP_MANUALLY,
     });
   }
 
@@ -204,7 +201,7 @@ export class HandlerService {
     await this.manager.updateTaskJobCron(taskId, cron);
 
     await this.logger.log(taskId, {
-      message: TASK_MESSAGE.CHANGE_CRON_MANUALLY,
+      message: MESSAGE.CHANGE_CRON_MANUALLY,
     });
   }
 
@@ -218,7 +215,7 @@ export class HandlerService {
     params: { errorMessage?: string; stack?: any },
   ): Promise<void> {
     this.logger.warn(taskId, {
-      message: TASK_MESSAGE.WARN,
+      message: MESSAGE.WARN,
       errorMessage: params?.errorMessage,
       stack: params?.stack,
     });
@@ -237,7 +234,7 @@ export class HandlerService {
     params: { errorMessage?: string; stack?: any },
   ): Promise<void> {
     this.logger.error(taskId, {
-      message: TASK_MESSAGE.ERROR,
+      message: MESSAGE.ERROR,
       errorMessage: params?.errorMessage,
       stack: params?.stack,
     });
