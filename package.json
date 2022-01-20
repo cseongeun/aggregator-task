@@ -33,7 +33,7 @@
     "@nestjs/schedule": "^1.0.2",
     "@nestjs/typeorm": "^8.0.2",
     "@seongeun/aggregator-base": "0.0.69",
-    "@seongeun/aggregator-common": "0.0.6",
+    "@seongeun/aggregator-common": "0.0.7",
     "@seongeun/aggregator-defi-protocol": "0.0.39",
     "@seongeun/aggregator-util": "^1.0.30",
     "axios": "^0.24.0",
