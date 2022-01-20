@@ -8,13 +8,13 @@ import {
   NetworkService,
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
-import { TASK_ID } from '../../task-app.constant';
-import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
-import { TokenPriceBaseService } from '../../task-app/template/token-price/service/service.base';
-import { TokenPriceChainLinkService } from '../../task-app/template/token-price/service/token-price.chain-link-oracle.service';
-import { TokenPriceMultiDexService } from '../../task-app/template/token-price/service/token-price.multi-dex.service';
-import { TokenPriceSingleDexService } from '../../task-app/template/token-price/service/token-price.single-dex.service';
-import { TokenPriceTaskTemplate } from '../../task-app/template/token-price/token-price.task.template';
+import { TASK_ID } from '../../app.constant';
+import { HandlerService } from '../../app/handler/handler.service';
+import { TokenPriceBaseService } from '../../app/template/token-price/service/service.base';
+import { TokenPriceChainLinkService } from '../../app/template/token-price/service/token-price.chain-link-oracle.service';
+import { TokenPriceMultiDexService } from '../../app/template/token-price/service/token-price.multi-dex.service';
+import { TokenPriceSingleDexService } from '../../app/template/token-price/service/token-price.single-dex.service';
+import { TokenPriceTaskTemplate } from '../../app/template/token-price/token-price.task.template';
 
 @Injectable()
 export class TokenPriceFantomAllTask extends TokenPriceTaskTemplate {
@@ -23,7 +23,7 @@ export class TokenPriceFantomAllTask extends TokenPriceTaskTemplate {
   constructor(
     public readonly networkService: NetworkService,
     public readonly tokenService: TokenService,
-    public readonly taskHandlerService: TaskHandlerService,
+    public readonly handlerService: HandlerService,
 
     // jobs
     public readonly tokenPriceChainLinkService: TokenPriceChainLinkService,
@@ -34,7 +34,7 @@ export class TokenPriceFantomAllTask extends TokenPriceTaskTemplate {
       TASK_ID.TOKEN_PRICE_FANTOM_ALL,
       NETWORK_CHAIN_TYPE.EVM,
       NETWORK_CHAIN_ID.FANTOM,
-      taskHandlerService,
+      handlerService,
       tokenService,
       networkService,
     );

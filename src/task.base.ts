@@ -2,7 +2,7 @@ import { CronJob } from 'cron';
 import { CronExpression } from '@nestjs/schedule';
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { getElapsedTime } from '@seongeun/aggregator-util/lib/time';
-import { TaskHandlerService } from './task-app/handler/task-handler.service';
+import { HandlerService } from './app/handler/handler.service';
 import { Task } from '@seongeun/aggregator-base/lib/entity';
 
 @Injectable()
@@ -34,7 +34,7 @@ export abstract class TaskBase implements OnModuleInit {
 
   constructor(
     public readonly id: string,
-    public readonly taskHandlerService: TaskHandlerService,
+    public readonly handlerService: HandlerService,
   ) {
     // 작업 및 작업 리스너 아이디 등록
     this.taskId = id;
@@ -50,7 +50,7 @@ export abstract class TaskBase implements OnModuleInit {
     });
 
     // 작업 및 작업 리스너 등록
-    this.taskHandlerService.manager.addTaskJob(
+    this.handlerService.manager.addTaskJob(
       this.taskId,
       this.taskJob,
       this.taskListenerJob,
@@ -59,7 +59,7 @@ export abstract class TaskBase implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     // 시작 작업 상태 업데이트
-    this.task = await this.taskHandlerService.getTask(this.taskId);
+    this.task = await this.handlerService.getTask(this.taskId);
   }
 
   /**
@@ -79,14 +79,14 @@ export abstract class TaskBase implements OnModuleInit {
 
       const elapsedTime = `${getElapsedTime(startTime, 's')}s`;
 
-      await this.taskHandlerService.handleSuccess(this.taskId, {
+      await this.handlerService.handleSuccess(this.taskId, {
         result,
         elapsedTime,
       });
 
       this.isTaskJobWorking = false;
     } catch (e) {
-      this.taskHandlerService.handleError(this.taskId, e);
+      this.handlerService.handleError(this.taskId, e);
     }
   }
 
@@ -101,11 +101,11 @@ export abstract class TaskBase implements OnModuleInit {
 
       this.isTaskListenerJobWorking = true;
 
-      this.task = await this.taskHandlerService.handleTaskListener(this.task);
+      this.task = await this.handlerService.handleTaskListener(this.task);
 
       this.isTaskListenerJobWorking = false;
     } catch (e) {
-      await this.taskHandlerService.handleListenerError(this.taskId, e);
+      await this.handlerService.handleListenerError(this.taskId, e);
     }
   }
 }

@@ -11,22 +11,22 @@ import {
 } from '@seongeun/aggregator-base/lib/service';
 import { Token } from '@seongeun/aggregator-base/lib/entity';
 import { AavePolygonSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/aave/polygon/aave.polygon.scheduler.service';
-import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
-import { TASK_EXCEPTION_LEVEL } from '../../task-app/exception/task-exception.constant';
-import { TASK_ID } from '../../task-app.constant';
-import { LendingTaskTemplate } from '../../task-app/template/lending.task.template';
+import { HandlerService } from '../../app/handler/handler.service';
+import { EXCEPTION_LEVEL } from '../../app/exception/exception.constant';
+import { TASK_ID } from '../../app.constant';
+import { LendingTaskTemplate } from '../../app/template/lending.task.template';
 
 @Injectable()
 export class AavePolygonLendingTask extends LendingTaskTemplate {
   constructor(
-    public readonly taskHandlerService: TaskHandlerService,
+    public readonly handlerService: HandlerService,
     public readonly lendingService: LendingService,
     public readonly tokenService: TokenService,
     public readonly context: AavePolygonSchedulerService,
   ) {
     super(
       TASK_ID.AAVE_POLYGON_LENDING,
-      taskHandlerService,
+      handlerService,
       lendingService,
       tokenService,
       context,
@@ -262,8 +262,7 @@ export class AavePolygonLendingTask extends LendingTaskTemplate {
         return { success: true };
       }
 
-      queryRunner =
-        await this.taskHandlerService.transaction.startTransaction();
+      queryRunner = await this.handlerService.transaction.startTransaction();
 
       const [
         { decimals: aTokenDecimals },
@@ -314,24 +313,24 @@ export class AavePolygonLendingTask extends LendingTaskTemplate {
         );
       }
 
-      await this.taskHandlerService.transaction.commitTransaction(queryRunner);
+      await this.handlerService.transaction.commitTransaction(queryRunner);
       return { success: true };
     } catch (e) {
       if (!isNull(queryRunner) && queryRunner.isTransactionActive) {
         await queryRunner.rollbackTransaction();
       }
 
-      const wrappedError = this.taskHandlerService.wrappedError(e);
+      const wrappedError = this.handlerService.wrappedError(e);
 
       // 인터널 노말 에러 시
-      if (wrappedError.level === TASK_EXCEPTION_LEVEL.NORMAL) {
+      if (wrappedError.level === EXCEPTION_LEVEL.NORMAL) {
         return { success: false };
       }
 
       // 인터널 패닉 에러 시
       throw Error(e);
     } finally {
-      await this.taskHandlerService.transaction.releaseTransaction(queryRunner);
+      await this.handlerService.transaction.releaseTransaction(queryRunner);
     }
   }
 

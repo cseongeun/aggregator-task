@@ -7,14 +7,14 @@ import {
   NetworkService,
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
-import { TASK_ID } from '../../task-app.constant';
-import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
-import { TokenSupplyTaskTemplate } from '../../task-app/template/token-supply.task.template';
+import { TASK_ID } from '../../app.constant';
+import { HandlerService } from '../../app/handler/handler.service';
+import { TokenSupplyTaskTemplate } from '../../app/template/token-supply.task.template';
 
 @Injectable()
 export class TokenSupplyKlaytnAllTask extends TokenSupplyTaskTemplate {
   constructor(
-    public readonly taskHandlerService: TaskHandlerService,
+    public readonly handlerService: HandlerService,
     public readonly tokenService: TokenService,
     public readonly networkService: NetworkService,
   ) {
@@ -22,7 +22,7 @@ export class TokenSupplyKlaytnAllTask extends TokenSupplyTaskTemplate {
       TASK_ID.TOKEN_SUPPLY_KLAYTN_ALL,
       NETWORK_CHAIN_TYPE.EVM,
       NETWORK_CHAIN_ID.KLAYTN,
-      taskHandlerService,
+      handlerService,
       tokenService,
       networkService,
     );

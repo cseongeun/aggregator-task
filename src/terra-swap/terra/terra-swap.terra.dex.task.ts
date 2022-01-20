@@ -7,10 +7,10 @@ import {
   QueryRunner,
   TransactionManager,
 } from 'typeorm';
-import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
+import { HandlerService } from '../../app/handler/handler.service';
 import { TaskBase } from '../../task.base';
 import { TerraSwapTerraSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/terra-swap/terra/terra-swap.terra.scheduler.service';
-import { TASK_ID } from '../../task-app.constant';
+import { TASK_ID } from '../../app.constant';
 import { get } from '@seongeun/aggregator-util/lib/object';
 import { TOKEN_TYPE } from '@seongeun/aggregator-base/lib/constant';
 import { UNKNOWN_STRING } from '@seongeun/aggregator-util/lib/constant';
@@ -21,11 +21,11 @@ import { getBatchCW20TokenInfos } from '@seongeun/aggregator-util/lib/multicall/
 @Injectable()
 export class TerraSwapTerraDexTask extends TaskBase {
   constructor(
-    public readonly taskHandlerService: TaskHandlerService,
+    public readonly handlerService: HandlerService,
     public readonly tokenService: TokenService,
     public readonly context: TerraSwapTerraSchedulerService,
   ) {
-    super(TASK_ID.TERRA_SWAP_TERRA_DEX, taskHandlerService);
+    super(TASK_ID.TERRA_SWAP_TERRA_DEX, handlerService);
   }
 
   loggingForm(): Record<string, any> {
@@ -36,7 +36,7 @@ export class TerraSwapTerraDexTask extends TaskBase {
   }
 
   async getLatestAssetInfo(): Promise<any> {
-    const task = await this.taskHandlerService.getTask(this.taskId);
+    const task = await this.handlerService.getTask(this.taskId);
     return get(task.data, 'latestAsset') || null;
   }
 
@@ -225,8 +225,7 @@ export class TerraSwapTerraDexTask extends TaskBase {
         ),
       ]);
 
-      queryRunner =
-        await this.taskHandlerService.transaction.startTransaction();
+      queryRunner = await this.handlerService.transaction.startTransaction();
 
       const { numOfNewSingle } = await this.createSingleTokens(
         singleInfo,
@@ -241,7 +240,7 @@ export class TerraSwapTerraDexTask extends TaskBase {
 
       if (pairs.length > 0) {
         const latestAsset = pairs[pairs.length - 1];
-        await this.taskHandlerService.updateTask(
+        await this.handlerService.updateTask(
           this.taskId,
           {
             data: { latestAsset: latestAsset.asset_infos },
@@ -249,19 +248,17 @@ export class TerraSwapTerraDexTask extends TaskBase {
           queryRunner.manager,
         );
       }
-      await this.taskHandlerService.transaction.commitTransaction(queryRunner);
+      await this.handlerService.transaction.commitTransaction(queryRunner);
 
       return {
         single: numOfNewSingle,
         multi: numOfNewMulti,
       };
     } catch (e) {
-      await this.taskHandlerService.transaction.rollbackTransaction(
-        queryRunner,
-      );
+      await this.handlerService.transaction.rollbackTransaction(queryRunner);
       throw Error(e);
     } finally {
-      await this.taskHandlerService.transaction.releaseTransaction(queryRunner);
+      await this.handlerService.transaction.releaseTransaction(queryRunner);
     }
   }
 

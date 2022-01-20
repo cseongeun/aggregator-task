@@ -3,17 +3,17 @@ import { INTERACTION_TYPE } from '@seongeun/aggregator-base/lib/constant';
 import { TContractAbi } from '@seongeun/aggregator-base/lib/interface';
 import { AaveAvalancheSchedulerService } from '@seongeun/aggregator-defi-protocol';
 import { getEventStream } from '@seongeun/aggregator-util/lib/stream';
-import { TASK_ID } from '../../task-app.constant';
-import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
-import { EventTaskTemplate } from '../../task-app/template/event.task.template';
+import { TASK_ID } from '../../app.constant';
+import { HandlerService } from '../../app/handler/handler.service';
+import { EventTaskTemplate } from '../../app/template/event.task.template';
 
 @Injectable()
 export class AaveAvalancheLendingEventTask extends EventTaskTemplate {
   constructor(
-    public readonly taskHandlerService: TaskHandlerService,
+    public readonly handlerService: HandlerService,
     public readonly context: AaveAvalancheSchedulerService,
   ) {
-    super(TASK_ID.AAVE_AVALANCHE_LENDING_EVENT, taskHandlerService, context);
+    super(TASK_ID.AAVE_AVALANCHE_LENDING_EVENT, handlerService, context);
   }
 
   getTargetDetail(): {

@@ -3,10 +3,10 @@ import {
   FarmService,
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
-import { TaskHandlerService } from '../task-app/handler/task-handler.service';
-import { FarmTaskTemplate } from '../task-app/template/farm.task.template';
+import { HandlerService } from '../app/handler/handler.service';
+import { FarmTaskTemplate } from '../app/template/farm.task.template';
 import { WaultSwapBinanceSmartChainSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/wault-swap/binance-smart-chain/wault-swap.binance-smart-chain.scheduler.service';
-import { TASK_ID } from '../task-app.constant';
+import { TASK_ID } from '../app.constant';
 import { Token } from '@seongeun/aggregator-base/lib/entity';
 import { BigNumber } from 'ethers';
 import { EntityManager, QueryRunner } from 'typeorm';
@@ -21,19 +21,19 @@ import {
   ONE_YEAR_DAYS,
   ZERO,
 } from '@seongeun/aggregator-util/lib/constant';
-import { TASK_EXCEPTION_LEVEL } from '../task-app/exception/task-exception.constant';
+import { EXCEPTION_LEVEL } from '../app/exception/exception.constant';
 
 @Injectable()
 export class WaultSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
   constructor(
-    public readonly taskHandlerService: TaskHandlerService,
+    public readonly handlerService: HandlerService,
     public readonly farmService: FarmService,
     public readonly tokenService: TokenService,
     public readonly context: WaultSwapBinanceSmartChainSchedulerService,
   ) {
     super(
       TASK_ID.WAULT_SWAP_BINANCE_SMART_CHAIN_FARM,
-      taskHandlerService,
+      handlerService,
       farmService,
       tokenService,
       context,
@@ -249,8 +249,7 @@ export class WaultSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
         }
       }
 
-      queryRunner =
-        await this.taskHandlerService.transaction.startTransaction();
+      queryRunner = await this.handlerService.transaction.startTransaction();
 
       let initialized = true;
       if (isUndefined(farm)) {
@@ -268,23 +267,21 @@ export class WaultSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
         );
       }
 
-      await this.taskHandlerService.transaction.commitTransaction(queryRunner);
+      await this.handlerService.transaction.commitTransaction(queryRunner);
       return { success: true };
     } catch (e) {
-      await this.taskHandlerService.transaction.rollbackTransaction(
-        queryRunner,
-      );
-      const wrappedError = this.taskHandlerService.wrappedError(e);
+      await this.handlerService.transaction.rollbackTransaction(queryRunner);
+      const wrappedError = this.handlerService.wrappedError(e);
 
       // 인터널 노말 에러 시
-      if (wrappedError.level === TASK_EXCEPTION_LEVEL.NORMAL) {
+      if (wrappedError.level === EXCEPTION_LEVEL.NORMAL) {
         return { success: false };
       }
 
       // 인터널 패닉 에러 시
       throw Error(e);
     } finally {
-      await this.taskHandlerService.transaction.releaseTransaction(queryRunner);
+      await this.handlerService.transaction.releaseTransaction(queryRunner);
     }
   }
 }

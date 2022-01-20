@@ -3,13 +3,13 @@ import {
   LendingService,
   TokenService,
 } from '@seongeun/aggregator-base/lib/service';
-import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
+import { HandlerService } from '../../app/handler/handler.service';
 import { VenusBinanceSmartChainSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/venus/binance-smart-chain/venus.binance-smart-chain.scheduler.service';
-import { TASK_ID } from '../../task-app.constant';
+import { TASK_ID } from '../../app.constant';
 import { EntityManager, QueryRunner, TransactionManager } from 'typeorm';
 import { isUndefined } from '@seongeun/aggregator-util/lib/type';
 import { isZeroAddress } from '@seongeun/aggregator-util/lib/address';
-import { TASK_EXCEPTION_LEVEL } from '../../task-app/exception/task-exception.constant';
+import { EXCEPTION_LEVEL } from '../../app/exception/exception.constant';
 import { Token } from '@seongeun/aggregator-base/lib/entity';
 import { BigNumber } from 'ethers';
 import { getSafeERC20BalanceOf } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
@@ -25,19 +25,19 @@ import {
   ONE_DAY_SECONDS,
   ONE_YEAR_DAYS,
 } from '@seongeun/aggregator-util/lib/constant';
-import { LendingTaskTemplate } from '../../task-app/template/lending.task.template';
+import { LendingTaskTemplate } from '../../app/template/lending.task.template';
 
 @Injectable()
 export class VenusBinanceSmartChainLendingTask extends LendingTaskTemplate {
   constructor(
-    public readonly taskHandlerService: TaskHandlerService,
+    public readonly handlerService: HandlerService,
     public readonly lendingService: LendingService,
     public readonly tokenService: TokenService,
     public readonly context: VenusBinanceSmartChainSchedulerService,
   ) {
     super(
       TASK_ID.VENUS_BINANCE_SMART_CHAIN_LENDING,
-      taskHandlerService,
+      handlerService,
       lendingService,
       tokenService,
       context,
@@ -282,8 +282,7 @@ export class VenusBinanceSmartChainLendingTask extends LendingTaskTemplate {
         return { success: true };
       }
 
-      queryRunner =
-        await this.taskHandlerService.transaction.startTransaction();
+      queryRunner = await this.handlerService.transaction.startTransaction();
 
       let initialized = true;
       if (isUndefined(lendingMarket)) {
@@ -314,24 +313,22 @@ export class VenusBinanceSmartChainLendingTask extends LendingTaskTemplate {
         );
       }
 
-      await this.taskHandlerService.transaction.commitTransaction(queryRunner);
+      await this.handlerService.transaction.commitTransaction(queryRunner);
       return { success: true };
     } catch (e) {
-      await this.taskHandlerService.transaction.rollbackTransaction(
-        queryRunner,
-      );
+      await this.handlerService.transaction.rollbackTransaction(queryRunner);
 
-      const wrappedError = this.taskHandlerService.wrappedError(e);
+      const wrappedError = this.handlerService.wrappedError(e);
 
       // 인터널 노말 에러 시
-      if (wrappedError.level === TASK_EXCEPTION_LEVEL.NORMAL) {
+      if (wrappedError.level === EXCEPTION_LEVEL.NORMAL) {
         return { success: false };
       }
 
       // 인터널 패닉 에러 시
       throw Error(e);
     } finally {
-      await this.taskHandlerService.transaction.releaseTransaction(queryRunner);
+      await this.handlerService.transaction.releaseTransaction(queryRunner);
     }
   }
 }

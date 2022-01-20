@@ -5,7 +5,7 @@ import {
   TokenModule,
 } from '@seongeun/aggregator-base/lib/module';
 import { PancakeSwapSchedulerModule } from '@seongeun/aggregator-defi-protocol/lib/pancake-swap/pancake-swap.scheduler.module';
-import { TaskHandlerModule } from '../task-app/handler/task-handler.module';
+import { HandlerModule } from '../app/handler/handler.module';
 import { PancakeSwapBinanceSmartChainDexTask } from './binance-smart-chain/pancake-swap.binance-smart-chain.dex.task';
 import { PancakeSwapBinanceSmartChainFarm_2_Task } from './binance-smart-chain/pancake-swap.binance-smart-chain.farm-2.task';
 import { PancakeSwapBinanceSmartChainFarmTask } from './binance-smart-chain/pancake-swap.binance-smart-chain.farm.task';
@@ -21,7 +21,7 @@ import { PancakeSwapBinanceSmartChainNFTTask } from './binance-smart-chain/panca
     FarmModule,
     TokenModule,
     NFTokenModule,
-    TaskHandlerModule,
+    HandlerModule,
   ],
   providers: [
     PancakeSwapBinanceSmartChainDexTask,

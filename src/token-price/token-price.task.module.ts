@@ -4,11 +4,11 @@ import {
   TokenModule,
   TokenPriceModule,
 } from '@seongeun/aggregator-base/lib/module';
-import { TaskHandlerModule } from '../task-app/handler/task-handler.module';
+import { HandlerModule } from '../app/handler/handler.module';
 
-import { TokenPriceChainLinkService } from '../task-app/template/token-price/service/token-price.chain-link-oracle.service';
-import { TokenPriceMultiDexService } from '../task-app/template/token-price/service/token-price.multi-dex.service';
-import { TokenPriceSingleDexService } from '../task-app/template/token-price/service/token-price.single-dex.service';
+import { TokenPriceChainLinkService } from '../app/template/token-price/service/token-price.chain-link-oracle.service';
+import { TokenPriceMultiDexService } from '../app/template/token-price/service/token-price.multi-dex.service';
+import { TokenPriceSingleDexService } from '../app/template/token-price/service/token-price.single-dex.service';
 
 import { TokenPriceAvalancheAllTask } from './avalanche/token-price.avalanche.all.task';
 import { TokenPriceBinanceSmartChainAllTask } from './binance-smart-chain/token-price.binance-smart-chain.all.task';
@@ -19,7 +19,7 @@ import { TokenPricePolygonAllTask } from './polygon/token-price.polygon.all.task
 import { TokenPriceXdaiAllTask } from './xdai/token-price.xdai.all.task';
 
 @Module({
-  imports: [NetworkModule, TokenModule, TaskHandlerModule, TokenPriceModule],
+  imports: [NetworkModule, TokenModule, HandlerModule, TokenPriceModule],
   providers: [
     TokenPriceChainLinkService,
     TokenPriceMultiDexService,

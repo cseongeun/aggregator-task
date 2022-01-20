@@ -21,23 +21,23 @@ import {
 import { getSafeERC20BalanceOf } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
 import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
 import { getFarmAssetName } from '@seongeun/aggregator-util/lib/naming';
-import { TASK_EXCEPTION_LEVEL } from '../../task-app/exception/task-exception.constant';
-import { TASK_ID } from '../../task-app.constant';
-import { TaskHandlerService } from '../../task-app/handler/task-handler.service';
-import { FarmTaskTemplate } from '../../task-app/template/farm.task.template';
+import { EXCEPTION_LEVEL } from '../../app/exception/exception.constant';
+import { TASK_ID } from '../../app.constant';
+import { HandlerService } from '../../app/handler/handler.service';
+import { FarmTaskTemplate } from '../../app/template/farm.task.template';
 import { PancakeSwapBinanceSmartChainSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/pancake-swap/binance-smart-chain/pancake-swap.binance-smart-chain.scheduler.service';
 
 @Injectable()
 export class PancakeSwapBinanceSmartChainFarm_2_Task extends FarmTaskTemplate {
   constructor(
-    public readonly taskHandlerService: TaskHandlerService,
+    public readonly handlerService: HandlerService,
     public readonly farmService: FarmService,
     public readonly tokenService: TokenService,
     public readonly context: PancakeSwapBinanceSmartChainSchedulerService,
   ) {
     super(
       TASK_ID.PANCAKE_SWAP_BINANCE_SMART_CHAIN_FARM_2,
-      taskHandlerService,
+      handlerService,
       farmService,
       tokenService,
       context,
@@ -289,20 +289,18 @@ export class PancakeSwapBinanceSmartChainFarm_2_Task extends FarmTaskTemplate {
       await queryRunner.commitTransaction();
       return { success: true };
     } catch (e) {
-      await this.taskHandlerService.transaction.rollbackTransaction(
-        queryRunner,
-      );
-      const wrappedError = this.taskHandlerService.wrappedError(e);
+      await this.handlerService.transaction.rollbackTransaction(queryRunner);
+      const wrappedError = this.handlerService.wrappedError(e);
 
       // 인터널 노말 에러 시
-      if (wrappedError.level === TASK_EXCEPTION_LEVEL.NORMAL) {
+      if (wrappedError.level === EXCEPTION_LEVEL.NORMAL) {
         return { success: false };
       }
 
       // 인터널 패닉 에러 시
       throw Error(e);
     } finally {
-      await this.taskHandlerService.transaction.releaseTransaction(queryRunner);
+      await this.handlerService.transaction.releaseTransaction(queryRunner);
     }
   }
 }

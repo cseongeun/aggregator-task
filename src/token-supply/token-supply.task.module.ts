@@ -3,7 +3,7 @@ import {
   NetworkModule,
   TokenModule,
 } from '@seongeun/aggregator-base/lib/module';
-import { TaskHandlerModule } from '../task-app/handler/task-handler.module';
+import { HandlerModule } from '../app/handler/handler.module';
 import { TokenSupplyAvalancheAllTask } from './avalanche/token-supply.avalanche.all.task';
 import { TokenSupplyBinanceSmartChainAllTask } from './binance-smart-chain/token-supply.binance-smart-chain.all.task';
 import { TokenSupplyFantomAllTask } from './fantom/token-supply.fantom.all.task';
@@ -13,7 +13,7 @@ import { TokenSupplyPolygonAllTask } from './polygon/token-supply.polygon.all.ta
 import { TokenSupplyXdaiAllTask } from './xdai/token-supply.xdai.all.task';
 
 @Module({
-  imports: [NetworkModule, TokenModule, TaskHandlerModule],
+  imports: [NetworkModule, TokenModule, HandlerModule],
   providers: [
     TokenSupplyAvalancheAllTask,
     TokenSupplyBinanceSmartChainAllTask,
