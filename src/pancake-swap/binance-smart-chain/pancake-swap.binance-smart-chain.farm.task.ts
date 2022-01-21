@@ -177,6 +177,7 @@ export class PancakeSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
 
     // 총 유동 가치(USD)
     const liquidityValue = mul(liquidityAmount, targetStakeToken.priceUSD);
+
     // 총 점유율
     const sharePointOfFarm = div(
       farmInfo.allocPoint,

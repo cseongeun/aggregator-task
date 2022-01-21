@@ -114,7 +114,7 @@ export class BakerySwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
   }
 
   async registerFarm(
-    farmInfo: { pid: number; lpToken: string },
+    farmInfo: { lpToken: string },
     @TransactionManager() manager?: EntityManager,
   ): Promise<boolean> {
     const stakeToken: Token = await this.tokenService.repository.findOneBy(
@@ -133,11 +133,10 @@ export class BakerySwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
         protocol: this.context.protocol,
         name: this.getFarmDetail().name,
         address: this.getFarmDetail().address,
-        pid: farmInfo.pid,
+        poolAddress: farmInfo.lpToken,
         assets: getFarmAssetName([stakeToken], [this.getRewardToken()]),
         stakeTokens: [stakeToken],
         rewardTokens: [this.getRewardToken()],
-        data: { lpToken: farmInfo.lpToken },
       },
       manager,
     );
@@ -145,7 +144,7 @@ export class BakerySwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
   }
 
   async refreshFarm(
-    farmInfo: { pid: number; allocPoint: BigNumber; lpToken: string },
+    farmInfo: { allocPoint: BigNumber; lpToken: string },
     globalState: {
       totalAllocPoint: BigNumber;
       rewardValueInOneYear: BigNumberJs;
@@ -158,7 +157,7 @@ export class BakerySwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
           protocol: this.context.protocol,
           name: this.getFarmDetail().name,
           address: this.getFarmDetail().address,
-          pid: farmInfo.pid,
+          poolAddress: farmInfo.lpToken,
         },
         manager,
       );
@@ -206,7 +205,6 @@ export class BakerySwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
         liquidityAmount: liquidityAmount.toString(),
         liquidityValue: liquidityValue.toString(),
         apr: farmApr.toString(),
-        data: { lpToken: farmInfo.lpToken },
         status: true,
       },
       manager,
@@ -237,7 +235,7 @@ export class BakerySwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
         protocol: this.context.protocol,
         name: this.getFarmDetail().name,
         address: this.getFarmDetail().address,
-        pid,
+        poolAddress: farmInfo.lpToken,
       });
 
       const { lpToken, allocPoint, exists } = farmInfo;
@@ -262,14 +260,11 @@ export class BakerySwapBinanceSmartChainFarmTask extends FarmTaskTemplate {
 
       let initialized = true;
       if (isUndefined(farm)) {
-        initialized = await this.registerFarm(
-          { pid, lpToken },
-          queryRunner.manager,
-        );
+        initialized = await this.registerFarm({ lpToken }, queryRunner.manager);
       }
       if (initialized) {
         await this.refreshFarm(
-          { pid, allocPoint, lpToken },
+          { allocPoint, lpToken },
           globalState,
           queryRunner.manager,
         );
