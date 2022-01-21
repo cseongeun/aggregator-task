@@ -4,10 +4,10 @@ import { TaskService } from '@seongeun/aggregator-base/lib/service';
 import { isCronString } from '@seongeun/aggregator-util/lib/type';
 import { EntityManager, TransactionManager, UpdateResult } from 'typeorm';
 import {
+  Exception,
   EXCEPTION_CODE,
   EXCEPTION_LEVEL,
-} from '../exception/exception.constant';
-import { Exception } from '../exception/exception.dto';
+} from '@seongeun/aggregator-common';
 import { Logger } from './libs/logger/logger';
 import { Manager } from './libs/manager/manager';
 import { MESSAGE } from './libs/message/message';

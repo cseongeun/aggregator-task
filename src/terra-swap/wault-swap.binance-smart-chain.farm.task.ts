@@ -21,7 +21,7 @@ import {
   ONE_YEAR_DAYS,
   ZERO,
 } from '@seongeun/aggregator-util/lib/constant';
-import { EXCEPTION_LEVEL } from '../app/exception/exception.constant';
+import { EXCEPTION_LEVEL } from '@seongeun/aggregator-common';
 
 @Injectable()
 export class WaultSwapBinanceSmartChainFarmTask extends FarmTaskTemplate {

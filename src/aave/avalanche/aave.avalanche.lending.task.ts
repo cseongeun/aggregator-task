@@ -12,7 +12,7 @@ import {
 import { Token } from '@seongeun/aggregator-base/lib/entity';
 import { AaveAvalancheSchedulerService } from '@seongeun/aggregator-defi-protocol/lib/aave/avalanche/aave.avalanche.scheduler.service';
 import { HandlerService } from '../../app/handler/handler.service';
-import { EXCEPTION_LEVEL } from '../../app/exception/exception.constant';
+import { EXCEPTION_LEVEL } from '@seongeun/aggregator-common';
 import { TASK_ID } from '../../app.constant';
 import { LendingTaskTemplate } from '../../app/template/lending.task.template';
 

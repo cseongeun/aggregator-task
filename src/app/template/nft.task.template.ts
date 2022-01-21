@@ -16,7 +16,7 @@ import {
 } from '@seongeun/aggregator-util/lib/bignumber';
 import { HandlerService } from '../handler/handler.service';
 import { TaskBase } from '../../task.base';
-import { EXCEPTION_CODE } from '../exception/exception.constant';
+import { EXCEPTION_CODE } from '@seongeun/aggregator-common';
 
 @Injectable()
 export abstract class NFTTaskTemplate extends TaskBase {

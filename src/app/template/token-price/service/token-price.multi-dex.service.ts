@@ -33,7 +33,7 @@ import {
 import { ERC20_ABI } from '@seongeun/aggregator-util/lib/erc20';
 import { ZERO } from '@seongeun/aggregator-util/lib/constant';
 import { HandlerService } from '../../../handler/handler.service';
-import { EXCEPTION_LEVEL } from '../../../exception/exception.constant';
+import { EXCEPTION_LEVEL } from '@seongeun/aggregator-common';
 import { TokenPriceBaseService } from './service.base';
 
 interface ITokenExtendBestPair extends Token {

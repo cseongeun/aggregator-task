@@ -17,10 +17,7 @@ import { QueryRunner } from 'typeorm';
 import { isZero, toFixed } from '@seongeun/aggregator-util/lib/bignumber';
 import { divideDecimals } from '@seongeun/aggregator-util/lib/decimals';
 import { HandlerService } from '../../../handler/handler.service';
-import {
-  EXCEPTION_CODE,
-  EXCEPTION_LEVEL,
-} from '../../../exception/exception.constant';
+import { EXCEPTION_CODE, EXCEPTION_LEVEL } from '@seongeun/aggregator-common';
 import { TokenPriceBaseService } from './service.base';
 
 @Injectable()

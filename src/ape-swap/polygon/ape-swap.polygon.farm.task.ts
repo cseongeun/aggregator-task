@@ -26,7 +26,7 @@ import {
   getSafeERC20BalanceOf,
 } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
 import { getFarmAssetName } from '@seongeun/aggregator-util/lib/naming';
-import { EXCEPTION_LEVEL } from '../../app/exception/exception.constant';
+import { EXCEPTION_LEVEL } from '@seongeun/aggregator-common';
 import { TASK_ID } from '../../app.constant';
 import { FarmTaskTemplate } from '../../app/template/farm.task.template';
 import { HandlerService } from '../../app/handler/handler.service';

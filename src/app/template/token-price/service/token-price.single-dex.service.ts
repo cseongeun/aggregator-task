@@ -30,7 +30,7 @@ import {
 } from '@seongeun/aggregator-util/lib/encodeDecode';
 import { ERC20_ABI } from '@seongeun/aggregator-util/lib/erc20';
 import { ZERO } from '@seongeun/aggregator-util/lib/constant';
-import { EXCEPTION_LEVEL } from '../../../exception/exception.constant';
+import { EXCEPTION_LEVEL } from '@seongeun/aggregator-common';
 import { TokenPriceBaseService } from './service.base';
 import { HandlerService } from '../../../handler/handler.service';
 

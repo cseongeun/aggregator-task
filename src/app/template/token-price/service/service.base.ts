@@ -10,7 +10,7 @@ import {
 } from '@seongeun/aggregator-util/lib/array';
 import { getBeforeSpecifiedDay } from '@seongeun/aggregator-util/lib/time';
 import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
-import { EXCEPTION_LEVEL } from '../../../exception/exception.constant';
+import { EXCEPTION_LEVEL } from '@seongeun/aggregator-common';
 import { HandlerService } from '../../../handler/handler.service';
 
 @Injectable()

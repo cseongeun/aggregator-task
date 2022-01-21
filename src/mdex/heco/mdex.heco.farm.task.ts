@@ -19,7 +19,7 @@ import {
 import { divideDecimals } from '@seongeun/aggregator-util/lib/decimals';
 import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
 import { getFarmAssetName } from '@seongeun/aggregator-util/lib/naming';
-import { EXCEPTION_LEVEL } from '../../app/exception/exception.constant';
+import { EXCEPTION_LEVEL } from '@seongeun/aggregator-common';
 import { TASK_ID } from '../../app.constant';
 import { HandlerService } from '../../app/handler/handler.service';
 import { FarmTaskTemplate } from '../../app/template/farm.task.template';

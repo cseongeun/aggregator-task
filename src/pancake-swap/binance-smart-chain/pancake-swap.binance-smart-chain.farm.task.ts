@@ -21,7 +21,7 @@ import {
 } from '@seongeun/aggregator-util/lib/constant';
 import { getSafeERC20BalanceOf } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
 import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
-import { EXCEPTION_LEVEL } from '../../app/exception/exception.constant';
+import { EXCEPTION_LEVEL } from '@seongeun/aggregator-common';
 import { getFarmAssetName } from '@seongeun/aggregator-util/lib/naming';
 
 @Injectable()

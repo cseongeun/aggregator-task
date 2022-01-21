@@ -9,7 +9,7 @@ import { TASK_ID } from '../../app.constant';
 import { EntityManager, QueryRunner, TransactionManager } from 'typeorm';
 import { isUndefined } from '@seongeun/aggregator-util/lib/type';
 import { isZeroAddress } from '@seongeun/aggregator-util/lib/address';
-import { EXCEPTION_LEVEL } from '../../app/exception/exception.constant';
+import { EXCEPTION_LEVEL } from '@seongeun/aggregator-common';
 import { Token } from '@seongeun/aggregator-base/lib/entity';
 import { BigNumber } from 'ethers';
 import { getSafeERC20BalanceOf } from '@seongeun/aggregator-util/lib/multicall/evm-contract';

@@ -26,7 +26,7 @@ import {
 import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
 import { getFarmAssetName } from '@seongeun/aggregator-util/lib/naming';
 import { getSafeERC20BalanceOf } from '@seongeun/aggregator-util/lib/multicall/evm-contract';
-import { EXCEPTION_LEVEL } from '../../app/exception/exception.constant';
+import { EXCEPTION_LEVEL } from '@seongeun/aggregator-common';
 
 @Injectable()
 export class BakerySwapBinanceSmartChainFarmTask extends FarmTaskTemplate {

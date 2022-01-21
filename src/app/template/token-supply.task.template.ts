@@ -14,7 +14,7 @@ import { get } from '@seongeun/aggregator-util/lib/object';
 import { TaskBase } from '../../task.base';
 import { HandlerService } from '../handler/handler.service';
 import { Provider } from '@ethersproject/providers';
-import { EXCEPTION_LEVEL } from '../exception/exception.constant';
+import { EXCEPTION_LEVEL } from '@seongeun/aggregator-common';
 import { divideDecimals } from '@seongeun/aggregator-util/lib/decimals';
 import {
   isGreaterThan,

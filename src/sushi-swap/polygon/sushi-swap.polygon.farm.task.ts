@@ -20,7 +20,7 @@ import {
   ZERO_ADDRESS,
 } from '@seongeun/aggregator-util/lib/constant';
 import { isNull, isUndefined } from '@seongeun/aggregator-util/lib/type';
-import { EXCEPTION_LEVEL } from '../../app/exception/exception.constant';
+import { EXCEPTION_LEVEL } from '@seongeun/aggregator-common';
 import { getFarmAssetName } from '@seongeun/aggregator-util/lib/naming';
 import {
   getSafeCheckCA,
