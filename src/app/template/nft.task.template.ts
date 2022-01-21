@@ -144,7 +144,7 @@ export abstract class NFTTaskTemplate extends TaskBase {
 
       queryRunner = await this.handlerService.transaction.startTransaction();
 
-      await this.nfTokenService.repository.createAllBy(
+      await this.nfTokenService.repository.createAllIfNotExistBy(
         createBulkData,
         queryRunner.manager,
       );
