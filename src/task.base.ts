@@ -73,6 +73,8 @@ export abstract class TaskBase implements OnModuleInit {
 
       this.isTaskJobWorking = true;
 
+      await this.handlerService.changeActive(this.taskId, true);
+
       const startTime = new Date().getTime();
 
       const result = await this.run();
@@ -87,6 +89,8 @@ export abstract class TaskBase implements OnModuleInit {
       this.isTaskJobWorking = false;
     } catch (e) {
       this.handlerService.handleError(this.taskId, e);
+    } finally {
+      await this.handlerService.changeActive(this.taskId, false);
     }
   }
 

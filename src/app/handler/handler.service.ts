@@ -22,6 +22,10 @@ export class HandlerService {
     public readonly manager: Manager,
   ) {}
 
+  async changeActive(taskId: string, active: boolean): Promise<UpdateResult> {
+    return this.taskService.repository.updateOneBy({ id: taskId }, { active });
+  }
+
   /**
    * DB 작업 상태 가져오기
    * @param taskId taskId

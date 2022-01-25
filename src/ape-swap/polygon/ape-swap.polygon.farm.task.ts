@@ -141,6 +141,7 @@ export class ApeSwapPolygonFarmTask extends FarmTaskTemplate {
       pid: number;
       lpToken: string;
       rewarder: string;
+      rewarderRewardTokenAddress: string;
       rewarderRewardToken: Token;
     },
     @TransactionManager() manager?: EntityManager,
@@ -169,7 +170,10 @@ export class ApeSwapPolygonFarmTask extends FarmTaskTemplate {
         assets: getFarmAssetName([stakeToken], rewardTokens),
         stakeTokens: [stakeToken],
         rewardTokens: rewardTokens,
-        data: { rewarder: farmInfo.rewarder },
+        data: {
+          rewarder: farmInfo.rewarder,
+          rewarderRewardTokenAddress: farmInfo.rewarderRewardTokenAddress,
+        },
       },
       manager,
     );
@@ -181,6 +185,7 @@ export class ApeSwapPolygonFarmTask extends FarmTaskTemplate {
       pid: number;
       allocPoint: BigNumber;
       rewarder: string;
+      rewarderRewardTokenAddress: string;
       rewarderRewardToken: Token;
     },
     globalState: {
@@ -245,7 +250,10 @@ export class ApeSwapPolygonFarmTask extends FarmTaskTemplate {
         liquidityAmount: liquidityAmount.toString(),
         liquidityValue: liquidityValue.toString(),
         apr: farmApr.toString(),
-        data: { rewarder: farmInfo.rewarder },
+        data: {
+          rewarder: farmInfo.rewarder,
+          rewarderRewardTokenAddress: farmInfo.rewarderRewardTokenAddress,
+        },
         status: true,
       },
       manager,
@@ -323,7 +331,13 @@ export class ApeSwapPolygonFarmTask extends FarmTaskTemplate {
       let initialized = true;
       if (isUndefined(farm)) {
         initialized = await this.registerFarm(
-          { pid, lpToken, rewarder: farmInfo.rewarder, rewarderRewardToken },
+          {
+            pid,
+            lpToken,
+            rewarder: farmInfo.rewarder,
+            rewarderRewardTokenAddress,
+            rewarderRewardToken,
+          },
           queryRunner.manager,
         );
       }
@@ -331,7 +345,13 @@ export class ApeSwapPolygonFarmTask extends FarmTaskTemplate {
       // 풀 업데이트
       if (initialized) {
         await this.refreshFarm(
-          { pid, allocPoint, rewarder: farmInfo.rewarder, rewarderRewardToken },
+          {
+            pid,
+            allocPoint,
+            rewarder: farmInfo.rewarder,
+            rewarderRewardTokenAddress,
+            rewarderRewardToken,
+          },
           globalState,
           queryRunner.manager,
         );
